@@ -4,7 +4,7 @@ import { Home } from "./pages/Home";
 import { RSVP } from "./pages/RSVP";
 import { Admin } from "./pages/Admin";
 import { BrandLogo } from "./components/Brand/BrandLogo";
-import { Lock, ArrowLeft, Menu, X } from "lucide-react";
+import { Lock, ArrowLeft } from "lucide-react";
 
 type ViewState = 'home' | 'rsvp' | 'admin';
 
@@ -21,12 +21,9 @@ export default function App() {
     return params.get("code") || "";
   });
 
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
   // Keep URL updated smoothly without reloading
   const switchView = (view: ViewState, code?: string) => {
     setCurrentView(view);
-    setMobileMenuOpen(false);
     if (code) setInitialCode(code);
 
     const url = new URL(window.location.href);
@@ -46,28 +43,6 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [currentView]);
 
-  const navLinks = [
-    { name: "La Boda", href: "#hero-section" },
-    { name: "Lugar", href: "#lugar" },
-    { name: "Itinerario", href: "#itinerario" },
-    { name: "Detalles", href: "#detalles" },
-    { name: "FAQs", href: "#faqs" },
-  ];
-
-  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-    e.preventDefault();
-    setMobileMenuOpen(false);
-    if (currentView !== 'home') {
-      setCurrentView('home');
-      setTimeout(() => {
-        const el = document.querySelector(href);
-        if (el) el.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    } else {
-      const el = document.querySelector(href);
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
 
   return (
     <div className="min-h-screen flex flex-col justify-between bg-canvas-paper text-[#151619] selection:bg-[#F0D9DF] selection:text-[#6E0D23]">
