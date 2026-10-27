@@ -46,9 +46,15 @@ export async function initSqliteDatabase(): Promise<void> {
         names TEXT NOT NULL,
         passes INTEGER NOT NULL DEFAULT 2,
         status TEXT NOT NULL DEFAULT 'pending',
-        updatedAt TEXT
+        updatedAt TEXT,
+        youtubeEmail TEXT
       );
     `);
+
+    const invitationColumns = syncDb.prepare(`PRAGMA table_info(invitations)`).all() as Array<{ name: string }>;
+    if (!invitationColumns.some(column => column.name === 'youtubeEmail')) {
+      syncDb.exec(`ALTER TABLE invitations ADD COLUMN youtubeEmail TEXT`);
+    }
 
     // 2. Guests Table
     syncDb.exec(`
@@ -86,7 +92,7 @@ export async function initSqliteDatabase(): Promise<void> {
         console.log(`[SQLite] Migrating ${list.length} invitations from db.json to SQLite...`);
 
         const insertInv = syncDb.prepare(
-          `INSERT OR REPLACE INTO invitations (code, names, passes, status, updatedAt) VALUES (?, ?, ?, ?, ?)`
+          `INSERT OR REPLACE INTO invitations (code, names, passes, status, updatedAt, youtubeEmail) VALUES (?, ?, ?, ?, ?, ?)`
         );
         const insertGuest = syncDb.prepare(
           `INSERT INTO guests (invitation_code, name, isAttending, dietaryRestrictions, notes, needsTransport, transportLocation)
@@ -99,7 +105,8 @@ export async function initSqliteDatabase(): Promise<void> {
             inv.names,
             inv.passes,
             inv.status,
-            inv.updatedAt || new Date().toISOString()
+            inv.updatedAt || new Date().toISOString(),
+            inv.youtubeEmail || null
           );
 
           for (const g of inv.guests || []) {
@@ -161,6 +168,7 @@ export async function getInvitationsSqlite(): Promise<Invitation[]> {
       passes: Number(row.passes),
       status: row.status as 'pending' | 'confirmed' | 'declined',
       updatedAt: row.updatedAt,
+      youtubeEmail: row.youtubeEmail || undefined,
       guests: guestMap[String(row.code).toUpperCase()] || []
     }));
   } catch (e) {
@@ -207,6 +215,7 @@ export async function getInvitationByCodeSqlite(code: string): Promise<Invitatio
       passes: Number(invRow.passes),
       status: invRow.status,
       updatedAt: invRow.updatedAt,
+      youtubeEmail: invRow.youtubeEmail || undefined,
       guests
     };
   } catch (e) {
@@ -225,9 +234,9 @@ export async function saveInvitationSqlite(invitation: Invitation): Promise<void
 
   try {
     const insertInv = db.prepare(
-      `INSERT OR REPLACE INTO invitations (code, names, passes, status, updatedAt) VALUES (?, ?, ?, ?, ?)`
+      `INSERT OR REPLACE INTO invitations (code, names, passes, status, updatedAt, youtubeEmail) VALUES (?, ?, ?, ?, ?, ?)`
     );
-    insertInv.run(code, invitation.names.trim(), invitation.passes, invitation.status, updatedAt);
+    insertInv.run(code, invitation.names.trim(), invitation.passes, invitation.status, updatedAt, invitation.youtubeEmail || null);
 
     // Delete existing guests
     db.prepare(`DELETE FROM guests WHERE invitation_code = ?`).run(code);
@@ -282,7 +291,8 @@ CREATE TABLE IF NOT EXISTS invitations (
   names VARCHAR(255) NOT NULL,
   passes INT NOT NULL DEFAULT 2,
   status VARCHAR(50) NOT NULL DEFAULT 'pending',
-  updatedAt VARCHAR(100)
+  updatedAt VARCHAR(100),
+  youtubeEmail VARCHAR(255)
 );
 
 CREATE TABLE IF NOT EXISTS guests (
@@ -301,7 +311,8 @@ CREATE TABLE IF NOT EXISTS guests (
 
   invitations.forEach(inv => {
     const safeNames = inv.names.replace(/'/g, "''");
-    sql += `INSERT INTO invitations (code, names, passes, status, updatedAt) VALUES ('${inv.code}', '${safeNames}', ${inv.passes}, '${inv.status}', '${inv.updatedAt || ''}');\n`;
+    const safeYoutubeEmail = (inv.youtubeEmail || '').replace(/'/g, "''");
+    sql += `INSERT INTO invitations (code, names, passes, status, updatedAt, youtubeEmail) VALUES ('${inv.code}', '${safeNames}', ${inv.passes}, '${inv.status}', '${inv.updatedAt || ''}', '${safeYoutubeEmail}');\n`;
     (inv.guests || []).forEach(g => {
       const safeGName = g.name.replace(/'/g, "''");
       const safeNotes = (g.notes || '').replace(/'/g, "''");

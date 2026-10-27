@@ -42,6 +42,7 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
   // Form states (managed locally once invitation is loaded)
   const [guestsState, setGuestsState] = useState<Guest[]>([]);
   const [generalStatus, setGeneralStatus] = useState<'confirmed' | 'declined'>('confirmed');
+  const [youtubeEmail, setYoutubeEmail] = useState("");
 
   // Auto-validate if initialCode was passed
   useEffect(() => {
@@ -67,6 +68,7 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
         setInvitation(data.invitation);
         setGuestsState(data.invitation.guests || []);
         setGeneralStatus(data.invitation.status === 'declined' ? 'declined' : 'confirmed');
+        setYoutubeEmail(data.invitation.youtubeEmail || "");
         setStep('form');
       } else {
         setErrorMessage(data.error || "Código inválido. Por favor verificá que esté bien escrito e intentalo de nuevo.");
@@ -85,12 +87,9 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
   };
 
   const handleGuestFieldChange = (index: number, field: keyof Guest, value: any) => {
-    const updated = [...guestsState];
-    updated[index] = {
-      ...updated[index],
-      [field]: value
-    };
-    setGuestsState(updated);
+    setGuestsState(currentGuests => currentGuests.map((guest, guestIndex) =>
+      guestIndex === index ? { ...guest, [field]: value } : guest
+    ));
   };
 
   const handleSubmitRsvp = async (e: React.FormEvent) => {
@@ -114,7 +113,8 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
         },
         body: JSON.stringify({
           guests: finalGuests,
-          status: generalStatus
+          status: generalStatus,
+          youtubeEmail: youtubeEmail.trim()
         })
       });
 
@@ -166,6 +166,7 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
 
   // Sample codes to ease demo testing
   const demoCodes = ["MARISIMON", "MAALWINES", "FAMILIA2026", "MILULOVER", "INVITADO123"];
+  const transportReservationCount = guestsState.filter(guest => guest.isAttending && guest.needsTransport).length;
 
   return (
     <div className="py-12 md:py-20 px-4 relative flex items-center justify-center overflow-hidden">
@@ -281,7 +282,7 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
             {/* WhatsApp button for guests */}
             <div className="pt-2 text-center">
               <a
-                href={`https://wa.me/?text=${encodeURIComponent("¡Hola Mari y Simón! No recuerdo mi código de invitación para la boda, ¿me lo podrían recordar?")}`}
+                href={`https://wa.me/5491176387793?text=${encodeURIComponent("¡Hola Mari y Simón! No recuerdo mi código de invitación para la boda, ¿me lo podrían recordar?")}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-[#FAF6F2] hover:bg-[#F1EBE3] border border-[#363B1F]/15 text-[#363B1F] text-xs font-manrope font-semibold transition-all duration-200 cursor-pointer shadow-xs hover:border-[#363B1F]/30 active:scale-95"
@@ -533,8 +534,23 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
                     Lamentamos mucho que no nos puedan acompañar en Mendoza en esta ocasión.
                   </p>
                   <p className="text-xs text-[#626262] font-manrope">
-                    Tus pases quedarán liberados para la organización del banquete. ¡Brindaremos a la distancia!
+                    Tus pases quedarán liberados para otras personas. De todas formas, nos encantará que nos acompañes online; dejanos el correo asociado a tu cuenta de YouTube y te enviaremos el enlace al live cuando esté disponible.
                   </p>
+                  <div className="pt-3 text-left space-y-1.5">
+                    <label htmlFor="youtube-live-email" className="text-[10px] font-mono text-[#626262] uppercase font-bold">
+                      Correo de tu cuenta de YouTube
+                    </label>
+                    <input
+                      id="youtube-live-email"
+                      type="email"
+                      required={generalStatus === 'declined'}
+                      autoComplete="email"
+                      value={youtubeEmail}
+                      onChange={(event) => setYoutubeEmail(event.target.value)}
+                      placeholder="nombre@ejemplo.com"
+                      className="w-full px-3.5 py-2.5 bg-white border border-[#363B1F]/20 rounded-xl text-sm font-manrope focus:outline-none focus:border-[#363B1F] focus:ring-1 focus:ring-[#363B1F]"
+                    />
+                  </div>
                 </div>
               )}
 
@@ -606,7 +622,7 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
               <p className="text-xs sm:text-sm text-[#626262] font-manrope max-w-sm mx-auto leading-relaxed">
                 {generalStatus === 'confirmed'
                   ? "Tu confirmación ha sido guardada en nuestra base de datos oficial. Nos alegra inmensamente que nos acompañes en este día tan especial."
-                  : "Gracias por avisarnos con anticipación. Guardamos tu respuesta en el registro de invitados."}
+                  : "Tus pases quedaron liberados y guardamos tu respuesta. ¡Nos encantará que nos acompañes online! Te enviaremos el enlace del live al correo de YouTube indicado."}
               </p>
             </div>
 
@@ -624,9 +640,15 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
                   ? guestsState.filter(g => g.isAttending).map(g => g.name).join(", ") || "Ninguno"
                   : "Declinado"}
               </p>
-              {generalStatus === 'confirmed' && guestsState.some(g => g.needsTransport) && (
+              {generalStatus === 'declined' && invitation.youtubeEmail && (
+                <p><strong>Email para el live:</strong> {invitation.youtubeEmail}</p>
+              )}
+              {generalStatus === 'confirmed' && (
                 <p className="text-emerald-700 font-semibold flex items-center gap-1">
-                  <Bus className="w-3.5 h-3.5" /> Traslado solicitado para asistentes seleccionados.
+                  <Bus className="w-3.5 h-3.5" />
+                  {transportReservationCount > 0
+                    ? `Transporte: ${transportReservationCount} asiento${transportReservationCount === 1 ? "" : "s"} reservado${transportReservationCount === 1 ? "" : "s"} · X$ por persona.`
+                    : "Transporte: sin asientos reservados."}
                 </p>
               )}
             </div>

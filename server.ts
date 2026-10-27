@@ -26,6 +26,7 @@ interface Invitation {
   passes: number;
   status: 'pending' | 'confirmed' | 'declined';
   updatedAt?: string;
+  youtubeEmail?: string;
   guests: Guest[];
 }
 
@@ -161,7 +162,7 @@ async function startServer() {
   // API: Submit RSVP
   app.post("/api/rsvp/:code", async (req, res) => {
     const code = req.params.code.trim().toUpperCase();
-    const { guests, status } = req.body;
+    const { guests, status, youtubeEmail } = req.body;
 
     if (!guests || !Array.isArray(guests)) {
       return res.status(400).json({ success: false, error: "Datos de invitados inválidos." });
@@ -183,6 +184,9 @@ async function startServer() {
       // Update data
       invitation.guests = guests;
       invitation.status = status;
+      invitation.youtubeEmail = typeof youtubeEmail === "string" && youtubeEmail.trim()
+        ? youtubeEmail.trim()
+        : invitation.youtubeEmail;
       invitation.updatedAt = new Date().toISOString();
 
       // Save to SQLite
