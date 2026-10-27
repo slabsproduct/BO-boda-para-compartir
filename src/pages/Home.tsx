@@ -23,6 +23,8 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       const childDocument = frame.contentDocument;
       const expectedPath = new URL(frame.src, window.location.href).pathname;
       if (!childDocument || childDocument.location.pathname !== expectedPath) return;
+      const childWindow = childDocument.defaultView;
+      if (!childWindow) return;
 
       cleanupFrame?.();
 
@@ -83,9 +85,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       const flipCardSelector = "#datos .framer-19orn2u-container, #datos .framer-18cyolp-container, #datos .framer-gvzoy3-container";
       const flipCardTimers = new Map<HTMLElement, number>();
       const flipHintRemovalTimers = new Set<number>();
-      const observedFlipCards = new WeakSet<HTMLElement>();
-      const childWindow = childDocument.defaultView;
-      const mobileViewport = childWindow?.matchMedia("(max-width: 809.98px)");
+      const mobileViewport = childWindow.matchMedia("(max-width: 809.98px)");
       const fadeOutFlipHint = (card: HTMLElement) => {
         const hint = card.querySelector<HTMLElement>(".mobile-flip-hint");
         if (!hint || hint.classList.contains("mobile-flip-hint-hidden")) return;
@@ -98,47 +98,53 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
         }, 1000);
         flipHintRemovalTimers.add(removalTimer);
       };
-      const flipCardObserver = new childWindow!.IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          const card = entry.target as HTMLElement;
-          const timer = flipCardTimers.get(card);
-
-          if (!entry.isIntersecting || !mobileViewport?.matches || card.dataset.mobileFlipHintDismissed === "true") {
-            if (timer !== undefined) {
-              window.clearTimeout(timer);
-              flipCardTimers.delete(card);
-            }
-            if (!mobileViewport?.matches) card.querySelector(".mobile-flip-hint")?.remove();
-            else if (!entry.isIntersecting) fadeOutFlipHint(card);
+      const isCardVisible = (card: HTMLElement) => {
+        const bounds = card.getBoundingClientRect();
+        if (bounds.width === 0 || bounds.height === 0) return false;
+        const visibleWidth = Math.max(0, Math.min(bounds.right, childWindow.innerWidth) - Math.max(bounds.left, 0));
+        const visibleHeight = Math.max(0, Math.min(bounds.bottom, childWindow.innerHeight) - Math.max(bounds.top, 0));
+        return (visibleWidth * visibleHeight) / (bounds.width * bounds.height) >= 0.35;
+      };
+      const updateFlipCardHints = () => {
+        childDocument.querySelectorAll<HTMLElement>(flipCardSelector).forEach((card) => {
+          const pendingTimer = flipCardTimers.get(card);
+          if (!mobileViewport.matches) {
+            if (pendingTimer !== undefined) window.clearTimeout(pendingTimer);
+            flipCardTimers.delete(card);
+            card.querySelector(".mobile-flip-hint")?.remove();
             return;
           }
 
-          if (timer !== undefined || card.querySelector(".mobile-flip-hint")) return;
-
-          flipCardTimers.set(card, window.setTimeout(() => {
+          if (!isCardVisible(card)) {
+            if (pendingTimer !== undefined) window.clearTimeout(pendingTimer);
             flipCardTimers.delete(card);
-            if (!mobileViewport.matches || !card.isConnected || card.dataset.mobileFlipHintDismissed === "true") return;
+            fadeOutFlipHint(card);
+            return;
+          }
+
+          if (card.dataset.mobileFlipHintDismissed === "true" || pendingTimer !== undefined || card.querySelector(".mobile-flip-hint")) return;
+
+          const timer = window.setTimeout(() => {
+            flipCardTimers.delete(card);
+            if (!mobileViewport.matches || !card.isConnected || card.dataset.mobileFlipHintDismissed === "true" || !isCardVisible(card)) return;
 
             const hint = childDocument.createElement("div");
             hint.className = "mobile-flip-hint";
             hint.setAttribute("aria-hidden", "true");
             hint.innerHTML = '<span class="mobile-flip-hint-circle"></span><span>Tocá para ver más</span>';
             card.appendChild(hint);
-            childWindow!.requestAnimationFrame(() => hint.classList.add("mobile-flip-hint-visible"));
-          }, 2000));
-        });
-      }, { threshold: 0.35 });
-      const trackFlipCards = () => {
-        childDocument.querySelectorAll<HTMLElement>(flipCardSelector).forEach((card) => {
-          if (observedFlipCards.has(card)) return;
-          observedFlipCards.add(card);
-          flipCardObserver.observe(card);
+            childWindow.requestAnimationFrame(() => hint.classList.add("mobile-flip-hint-visible"));
+          }, 2000);
+          flipCardTimers.set(card, timer);
         });
       };
-      trackFlipCards();
-      const flipCardMutationObserver = new MutationObserver(trackFlipCards);
       const cardsSection = childDocument.querySelector("#datos");
+      const flipCardMutationObserver = new childWindow.MutationObserver(updateFlipCardHints);
       if (cardsSection) flipCardMutationObserver.observe(cardsSection, { childList: true, subtree: true });
+      childWindow.addEventListener("scroll", updateFlipCardHints, { passive: true });
+      childWindow.addEventListener("resize", updateFlipCardHints);
+      window.addEventListener("scroll", updateFlipCardHints, { passive: true });
+      updateFlipCardHints();
 
       const handleClick = (event: MouseEvent) => {
         const target = event.target as Element | null;
@@ -267,10 +273,12 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
 
       cleanupFrame = () => {
         window.clearInterval(countdownTimer);
-        flipCardObserver.disconnect();
         flipCardMutationObserver.disconnect();
         flipCardTimers.forEach((timer) => window.clearTimeout(timer));
         flipHintRemovalTimers.forEach((timer) => window.clearTimeout(timer));
+        childWindow.removeEventListener("scroll", updateFlipCardHints);
+        childWindow.removeEventListener("resize", updateFlipCardHints);
+        window.removeEventListener("scroll", updateFlipCardHints);
         weddingGifObserver.disconnect();
         childDocument.removeEventListener("click", handleClick, true);
         childDocument.querySelector("#main")?.removeEventListener("transitionend", resizeFrame);
@@ -308,7 +316,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       </div>
       <iframe
         ref={frameRef}
-        src="/framer-home.html?revision=20261027-mobile-card-hint-iframe-window"
+        src="/framer-home.html?revision=20261027-mobile-card-hint-scroll-check"
         title="Boda de Mari y Simón"
         className="fixed inset-x-0 top-0 z-40 block w-full border-0"
         style={{ height: "100vh" }}
