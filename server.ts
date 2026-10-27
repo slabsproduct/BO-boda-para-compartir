@@ -118,7 +118,7 @@ async function startServer() {
   await initSqliteDatabase().catch(err => console.error("SQLite init error:", err));
 
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT ?? 5000);
 
   app.use(express.json());
 

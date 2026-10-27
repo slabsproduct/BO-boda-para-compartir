@@ -150,6 +150,79 @@ body {
   scroll-behavior: smooth;
 }
 
+.home-preloader-emblem {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 96px;
+  aspect-ratio: 1;
+  place-items: center;
+}
+
+.home-preloader {
+  overflow: hidden;
+  background-color: rgba(250, 246, 242, 0.52);
+  backdrop-filter: blur(0.5px);
+  transition: opacity 400ms ease, visibility 400ms ease;
+}
+
+.home-preloader::before {
+  position: absolute;
+  inset: 0;
+  background-image: url('/framer/canvas-paper-texture.png');
+  background-size: 360px 360px;
+  content: "";
+  opacity: 0.22;
+}
+
+.home-preloader-visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.home-preloader-hidden {
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.home-preloader-ring {
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid rgba(110, 13, 35, 0.12);
+  border-top-color: #6E0D23;
+  border-right-color: rgba(110, 13, 35, 0.42);
+  border-radius: 50%;
+  box-shadow: 0 0 20px rgba(110, 13, 35, 0.08);
+  animation: home-preloader-spin 900ms linear infinite;
+}
+
+.home-preloader-emblem img {
+  width: 36px;
+  height: 48px;
+  animation: home-preloader-pulse 1.35s ease-in-out infinite;
+}
+
+@keyframes home-preloader-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes home-preloader-pulse {
+  0%, 100% { transform: scale(0.94); opacity: 0.86; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-preloader-ring,
+  .home-preloader-emblem img {
+    animation: none;
+  }
+
+  .home-preloader {
+    transition: none;
+  }
+}
+
 /* Custom scrollbar matching Framer olive aesthetic */
 ::-webkit-scrollbar {
   width: 7px;

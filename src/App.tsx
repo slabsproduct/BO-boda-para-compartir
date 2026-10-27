@@ -78,23 +78,14 @@ export default function App() {
 
       {/* 2. MAIN VIEWS ROUTER */}
       <main className="flex-grow">
-        <AnimatePresence mode="wait">
-          
-          {currentView === 'home' && (
-            <motion.div
-              key="home-view"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.35 }}
-            >
-              <Home 
-                onRsvpClick={() => switchView('rsvp')}
-                onAdminClick={() => switchView('admin')}
-              />
-            </motion.div>
-          )}
+        <div className={currentView === 'home' ? 'w-full' : 'fixed inset-0 -z-10 invisible pointer-events-none'}>
+          <Home
+            onRsvpClick={() => switchView('rsvp')}
+            onAdminClick={() => switchView('admin')}
+          />
+        </div>
 
+        <AnimatePresence mode="wait">
           {currentView === 'rsvp' && (
             <motion.div
               key="rsvp-view"
@@ -125,6 +116,7 @@ export default function App() {
       </main>
 
       {/* 3. MINIMALIST FOOTER */}
+      {currentView !== 'home' && (
       <footer className="bg-[#FAF6F2]/70 backdrop-blur-xs border-t border-[#363B1F]/10 py-6 px-4 text-center">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#626262] font-manrope">
           <div className="flex items-center gap-2">
@@ -164,6 +156,7 @@ export default function App() {
           </div>
         </div>
       </footer>
+      )}
 
     </div>
   );
