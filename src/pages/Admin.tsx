@@ -730,6 +730,12 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
                           </span>
                         )}
                       </p>
+                      {inv.youtubeEmail && (
+                        <p className="pt-1 text-xs text-[#626262]">
+                          <span className="font-semibold text-[#363B1F]">Email para el live:</span>{" "}
+                          <a className="text-[#006B52] underline" href={`mailto:${inv.youtubeEmail}`}>{inv.youtubeEmail}</a>
+                        </p>
+                      )}
                     </div>
 
                     {/* Guests breakdown */}

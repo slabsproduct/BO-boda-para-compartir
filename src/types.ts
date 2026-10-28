@@ -17,6 +17,7 @@ export interface Invitation {
   passes: number;
   status: 'pending' | 'confirmed' | 'declined';
   updatedAt?: string;
+  youtubeEmail?: string;
   guests: Guest[];
 }
 
