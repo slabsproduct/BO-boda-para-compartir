@@ -38201,7 +38201,7 @@ var Jm,
                         children: p(_e, {
                           azjbYCood: `999px`,
                           gHeOvXgAq: `https://maps.app.goo.gl/5DypKSeZSw9CjCMF9`,
-                          Goeh0UlpU: `MapPinArea`,
+                          Goeh0UlpU: `Recurso 5.svg`,
                           height: `100%`,
                           hyoIEBZCr: `Ver en Maps`,
                           id: `kLZglQxJm`,
@@ -39770,6 +39770,13 @@ var qh,
       }),
       (sg.loader = { load: (e, t) => (t.locale, Promise.allSettled([k(Wh, {}, t)])) }));
   });
+function renderBackNote(text) {
+  return text.split(/(<b>[\s\S]*?<\/b>)/g).map((part, index) => {
+    const bold = part.match(/^<b>([\s\S]*?)<\/b>$/);
+    return bold ? p("strong", { key: index, children: bold[1] }) : part;
+  });
+}
+
 function lg(e) {
   let {
       image: t = `https://framerusercontent.com/images/GfGkADagM4KEibNcIiRUWlfrR0.jpg`,
@@ -39927,7 +39934,7 @@ function lg(e) {
                 ...(h && typeof h == `object` ? h : {}),
                 color: g,
               },
-              children: r,
+              children: renderBackNote(r),
             }),
           }),
         ],
@@ -41264,18 +41271,18 @@ e(() => {
                                     nodeId: `qam7GMDaP`,
                                     scopeId: `cUeqT91wH`,
                                     children: p(lg, {
-                                      backNote: `Elegantes sin perder la frescura.
+                                      backNote: `<b>Elegantes sin perder la frescura</b>.
 
-Mujeres
+<b>Mujeres</b>
 Vestido largo. Nos encantan los vestidos fluidos, los estampados y los colores que acompañan una celebración de día.
 
 Por las características del lugar, les recomendamos elegir un calzado cómodo.
-El blanco está reservado para la novia. 
+<b>El blanco está reservado para la novia.</b>
 
-Hombres
+<b>Hombres</b>
 Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camisa y zapatos o mocasines. El traje completo y la corbata no son necesarios.
 
-El beige y gris claro están reservados para el novio.`,
+<b>El beige y gris claro están reservados para el novio.</b>`,
                                       borderColor: `rgb(224, 224, 224)`,
                                       borderEnabled: !1,
                                       borderWidth: 1,
@@ -41327,7 +41334,7 @@ El beige y gris claro están reservados para el novio.`,
                                               style: {
                                                 "--font-selector": `Q1VTVE9NVjI7TWVsYWd1IFJlZ3VsYXI=`,
                                                 "--framer-font-family": `"Melagu Regular", "Melagu Regular Placeholder", sans-serif`,
-                                                "--framer-line-height": `1.3em`,
+                                                "--framer-line-height": `1hyoIEBZCr.3em`,
                                                 "--framer-text-alignment": `center`,
                                               },
                                               children: `¿Necesitás inspiración?`,
@@ -41380,7 +41387,7 @@ El beige y gris claro están reservados para el novio.`,
                                     nodeId: `xQ3AhTPFC`,
                                     scopeId: `cUeqT91wH`,
                                     children: p(lg, {
-                                      backNote: `Queremos que disfruten de este día al máximo y sin preocupaciones. Como la conectividad en la zona es limitada, pondremos a disposición un servicio de bus para que puedan llegar y regresar cómodamente, sin tener que preocuparse por manejar. El servicio tendrá un costo de $X por persona.
+                                      backNote: `Queremos que disfruten de este día al máximo y sin preocupaciones. Como la conectividad en la zona es limitada, pondremos a disposición un servicio de bus para que puedan llegar y regresar cómodamente, sin tener que preocuparse por manejar. <b>El servicio tendrá un costo de $X por persona</b>.
 
 ¡Así solo tienen que preocuparse por celebrar con nosotros!`,
                                       borderColor: `rgb(224, 224, 224)`,

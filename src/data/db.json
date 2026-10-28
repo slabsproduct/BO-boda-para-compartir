@@ -4,17 +4,22 @@
       "code": "MARISIMON",
       "names": "Mariángel & Simón",
       "passes": 2,
-      "status": "pending",
+      "status": "confirmed",
+      "updatedAt": "2026-10-27T17:25:12.025Z",
       "guests": [
         {
           "name": "Mariángel",
-          "isAttending": true,
-          "dietaryRestrictions": "none"
+          "isAttending": false,
+          "dietaryRestrictions": "none",
+          "needsTransport": true,
+          "transportLocation": "Chacras de Coria"
         },
         {
           "name": "Simón",
-          "isAttending": true,
-          "dietaryRestrictions": "none"
+          "isAttending": false,
+          "dietaryRestrictions": "none",
+          "needsTransport": false,
+          "transportLocation": "Mendoza Centro (Plaza Independencia)"
         }
       ]
     },
@@ -22,17 +27,22 @@
       "code": "MAALWINES",
       "names": "Santi & Maite",
       "passes": 2,
-      "status": "pending",
+      "status": "confirmed",
+      "updatedAt": "2026-10-27T16:56:06.143Z",
       "guests": [
         {
           "name": "Santi",
           "isAttending": true,
-          "dietaryRestrictions": "none"
+          "dietaryRestrictions": "none",
+          "needsTransport": true,
+          "transportLocation": "Mendoza Centro (Plaza Independencia)"
         },
         {
           "name": "Maite",
           "isAttending": true,
-          "dietaryRestrictions": "vegetarian"
+          "dietaryRestrictions": "vegetarian",
+          "needsTransport": true,
+          "transportLocation": "Mendoza Centro (Plaza Independencia)"
         }
       ]
     },
@@ -68,17 +78,20 @@
       "code": "MILULOVER",
       "names": "Fanáticos de Milu",
       "passes": 2,
-      "status": "pending",
+      "status": "declined",
+      "updatedAt": "2026-10-27T16:44:03.795Z",
       "guests": [
         {
           "name": "Diego Fernández",
-          "isAttending": true,
-          "dietaryRestrictions": "none"
+          "isAttending": false,
+          "dietaryRestrictions": "none",
+          "needsTransport": false
         },
         {
           "name": "Valeria Rossi",
-          "isAttending": true,
-          "dietaryRestrictions": "vegan"
+          "isAttending": false,
+          "dietaryRestrictions": "vegan",
+          "needsTransport": false
         }
       ]
     },

@@ -97,6 +97,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
           flipHintRemovalTimers.delete(removalTimer);
         }, 1000);
         flipHintRemovalTimers.add(removalTimer);
+        
       };
       const isCardVisible = (card: HTMLElement) => {
         const bounds = card.getBoundingClientRect();
