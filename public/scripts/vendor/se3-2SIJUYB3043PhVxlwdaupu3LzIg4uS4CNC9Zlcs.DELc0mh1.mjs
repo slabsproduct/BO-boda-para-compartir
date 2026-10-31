@@ -41511,7 +41511,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             children: p(_e, {
                                               azjbYCood: `999px`,
                                               height: `100%`,
-                                              hyoIEBZCr: `Preparen sus cámaras`,
+                                              hyoIEBZCr: ``,
                                               id: `tEjKL9gsO`,
                                               layoutId: `tEjKL9gsO`,
                                               variant: Fg(`eMNwtJ8FZ`),
@@ -41740,7 +41740,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             children: p(_e, {
                                               azjbYCood: `999px`,
                                               height: `100%`,
-                                              hyoIEBZCr: `Preparen sus cámaras`,
+                                              hyoIEBZCr: ``,
                                               id: `I6j2nTgc9`,
                                               layoutId: `I6j2nTgc9`,
                                               variant: Fg(`eMNwtJ8FZ`),
