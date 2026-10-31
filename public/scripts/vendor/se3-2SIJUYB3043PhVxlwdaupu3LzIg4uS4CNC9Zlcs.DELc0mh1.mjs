@@ -41435,7 +41435,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                     nodeId: `rU5l2BUiS`,
                                     scopeId: `cUeqT91wH`,
                                     children: p(lg, {
-                                      backNote: `¡Queremos vivir este día a través de sus ojos! 💛 Creamos un álbum compartido para que puedan subir todas las fotos y videos que quieran, no solo de la boda, sino también de la travesía para llegar hasta acá. Sabemos que muchos harán un largo viaje para acompañarnos y nos encantaría guardar esos pequeños momentos, desde el comienzo de la aventura hasta el último baile.
+                                      backNote: `¡Queremos vivir este día a través de sus ojos! 💛 Saquen todas las fotos y videos que quieran, no solo de la boda, sino también de la travesía para llegar hasta acá. Sabemos que muchos harán un largo viaje para acompañarnos y nos encantaría guardar esos pequeños momentos, desde el comienzo de la aventura hasta el último baile.
 
 ¡Cada recuerdo cuenta y queremos atesorarlos todos con ustedes!`,
                                       borderColor: `rgb(224, 224, 224)`,
@@ -41491,7 +41491,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                               "--framer-line-height": `1.3em`,
                                               "--framer-text-alignment": `center`,
                                             },
-                                            children: `Sumá las fotos que quieras desde el albúm compartido que creamos para compartir y no quedarnos fuera,`,
+                                            children: `Preparen sus cámaras y capturen todo desde su punto de vista,`,
                                           }),
                                         }),
                                         className: `framer-17v004q`,
@@ -41511,7 +41511,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             children: p(_e, {
                                               azjbYCood: `999px`,
                                               height: `100%`,
-                                              hyoIEBZCr: `Sumate al albúm`,
+                                              hyoIEBZCr: `Preparen sus cámaras`,
                                               id: `tEjKL9gsO`,
                                               layoutId: `tEjKL9gsO`,
                                               variant: Fg(`eMNwtJ8FZ`),
@@ -41719,7 +41719,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                               "--framer-line-height": `1.3em`,
                                               "--framer-text-alignment": `center`,
                                             },
-                                            children: `Sumá las fotos que quieras desde el albúm compartido que creamos para compartir y no quedarnos fuera,`,
+                                            children: `Preparen sus cámaras y capturen todo desde su punto de vista,`,
                                           }),
                                         }),
                                         className: `framer-1l54fr5`,
@@ -41740,7 +41740,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             children: p(_e, {
                                               azjbYCood: `999px`,
                                               height: `100%`,
-                                              hyoIEBZCr: `Sumate al albúm`,
+                                              hyoIEBZCr: `Preparen sus cámaras`,
                                               id: `I6j2nTgc9`,
                                               layoutId: `I6j2nTgc9`,
                                               variant: Fg(`eMNwtJ8FZ`),
@@ -42137,7 +42137,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                           NSoyBpum7: `¿Qué necesito para ingresar a Argentina si viajo desde el exterior?`,
                                           OCWqaoTN3: `¡Sí! Tendremos un servicio de comida increíble para compartir y una pista de baile para que todos se diviertan. Si tienes alguna restricción con alimentos, por favor, indícalo en el formulario de confirmación.`,
                                           qTYaUuARc: `¿La boda es en interior o al aire libre?`,
-                                          qUDrqxRA_: `¡Claro! Nos encantaría que compartas tus fotos en nuestro albúm compartido. Solo te pedimos que no uses flash, silencies tu teléfono y no obstruyas el paso de los fotógrafos profesionales.`,
+                                          qUDrqxRA_: `¡Claro! Nos encantaría ver el día desde tu punto de vista. Solo te pedimos que no uses flash, silencies tu teléfono y no obstruyas el paso de los fotógrafos profesionales.`,
                                           style: { width: `100%` },
                                           t2MHMdVRA: `Sí, únicamente la ceremonia se transmitirá por YouTube Live de 4:00 PM para quienes no nos puedan acompañar físicamente.`,
                                           t3O8tZ8FB: `¿Puedo llevar acompañante?`,
