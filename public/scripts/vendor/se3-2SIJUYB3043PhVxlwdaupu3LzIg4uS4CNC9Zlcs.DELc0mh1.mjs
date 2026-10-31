@@ -41435,7 +41435,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                     nodeId: `rU5l2BUiS`,
                                     scopeId: `cUeqT91wH`,
                                     children: p(lg, {
-                                      backNote: `¡Queremos vivir este día a través de sus ojos! 💛 Saquen todas las fotos y videos que quieran, no solo de la boda, sino también de la travesía para llegar hasta acá. Sabemos que muchos harán un largo viaje para acompañarnos y nos encantaría guardar esos pequeños momentos, desde el comienzo de la aventura hasta el último baile.
+                                      backNote: `¡Queremos vivir este día a través de sus ojos! 💛 Saquen todas las fotos y videos que quieran, no solo de la boda, sino también de la travesía para llegar hasta acá. Sabemos que muchos harán un largo viaje para acompañarnos y nos encantaría guardar esos pequeños momentos, desde el comienzo de la aventura hasta el último baile. E igual, seguinos en IG para ver nuestra aventura al altar.
 
 ¡Cada recuerdo cuenta y queremos atesorarlos todos con ustedes!`,
                                       borderColor: `rgb(224, 224, 224)`,
@@ -41491,7 +41491,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                               "--framer-line-height": `1.3em`,
                                               "--framer-text-alignment": `center`,
                                             },
-                                            children: `Preparen sus cámaras y capturen todo desde su punto de vista,`,
+                                            children: `Seguinos en IG y capturen todo desde su punto de vista,`,
                                           }),
                                         }),
                                         className: `framer-17v004q`,
@@ -41511,7 +41511,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             children: p(_e, {
                                               azjbYCood: `999px`,
                                               height: `100%`,
-                                              hyoIEBZCr: `Preparen sus cámaras`,
+                                              hyoIEBZCr: `Seguinos en IG`,
                                               id: `tEjKL9gsO`,
                                               layoutId: `tEjKL9gsO`,
                                               variant: Fg(`eMNwtJ8FZ`),
@@ -41719,7 +41719,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                               "--framer-line-height": `1.3em`,
                                               "--framer-text-alignment": `center`,
                                             },
-                                            children: `Preparen sus cámaras y capturen todo desde su punto de vista,`,
+                                            children: `Seguinos en IG y capturen todo desde su punto de vista,`,
                                           }),
                                         }),
                                         className: `framer-1l54fr5`,
@@ -41740,7 +41740,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             children: p(_e, {
                                               azjbYCood: `999px`,
                                               height: `100%`,
-                                              hyoIEBZCr: `Preparen sus cámaras`,
+                                              hyoIEBZCr: `Seguinos en IG`,
                                               id: `I6j2nTgc9`,
                                               layoutId: `I6j2nTgc9`,
                                               variant: Fg(`eMNwtJ8FZ`),
