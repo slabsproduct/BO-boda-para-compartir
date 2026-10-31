@@ -1126,7 +1126,7 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
                 </div>
                 <h5 className="font-bold text-[#363B1F] text-sm">Subir a cPanel / DonWeb</h5>
                 <p className="text-[#626262] leading-relaxed">
-                  Subí el contenido a tu carpeta <code className="bg-[#FAF6F2] px-1 py-0.5 rounded text-[11px] font-mono text-[#6E0D23]">public_html/boda/</code>. Si usás el selector de Node.js de DonWeb, la base SQLite funcionará directamente sin necesidad de crear servidores MySQL ni usuarios externos.
+                  Subí el contenido a tu carpeta <code className="bg-[#FAF6F2] px-1 py-0.5 rounded text-[11px] font-mono text-[#6E0D23]">public_html/boda/</code>. El backend <code className="bg-[#FAF6F2] px-1 py-0.5 rounded text-[11px] font-mono text-[#6E0D23]">api.php</code> funciona nativamente en PHP del hosting compartido: las reservas se guardan en <code className="bg-[#FAF6F2] px-1 py-0.5 rounded text-[11px] font-mono text-[#6E0D23]">data/db.json</code> con escritura atómica, sin necesitar Node.js ni MySQL.
                 </p>
               </div>
             </div>
