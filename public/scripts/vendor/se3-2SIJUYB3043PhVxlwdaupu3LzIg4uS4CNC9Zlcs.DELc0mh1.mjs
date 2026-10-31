@@ -41387,7 +41387,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                     nodeId: `xQ3AhTPFC`,
                                     scopeId: `cUeqT91wH`,
                                     children: p(lg, {
-                                      backNote: `Queremos que disfruten de este día al máximo y sin preocupaciones. Como la conectividad en la zona es limitada, pondremos a disposición un servicio de bus para que puedan llegar y regresar cómodamente, sin tener que preocuparse por manejar. <b>El servicio tendrá un costo de $X por persona</b>.
+                                      backNote: `Queremos que disfruten de este día al máximo y sin preocupaciones. Por eso nos encargamos de su regreso: al terminar la fiesta, habrá un servicio de bus esperándolos para volver cómodamente, sin tener que pensar en manejar. <b>La ida es por su cuenta, el regreso lo ponemos nosotros, sin costo alguno</b>.
 
 ¡Así solo tienen que preocuparse por celebrar con nosotros!`,
                                       borderColor: `rgb(224, 224, 224)`,
