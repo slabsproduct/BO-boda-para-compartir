@@ -342,16 +342,12 @@ async function startServer() {
       }
     });
 
-    // Inyecta window.PHP_ENABLED para que base.ts elija api.php o /api/* sin sondas.
-    // Se hace con el hook transformIndexHtml de Vite (robusto: funciona aunque
-    // Express ya haya fijado Content-Length, a diferencia de reescribir res.end).
-    vite.config.hooks.callHook("configResolved", () => {});
-    (vite as any).middlewares.use((req: any, _res: any, next: any) => next());
-    vite.middlewares.use && void 0; // no-op guard
+    // Nota: en dev el frontend SIEMPRE usa /api/* de Express (base.ts detecta
+    // import.meta.env.DEV), así que no hace falta inyectar window.PHP_ENABLED
+    // ni ningún hack de middlewares aquí. El proxy /api.php de arriba queda
+    // disponible solo por si se levanta PHP manualmente con BODA_DEV_PHP=1.
 
-    app.use(
-      vite.middlewares,
-    );
+    app.use(vite.middlewares);
   } else {
     console.log("🚀 Iniciando en modo PRODUCCIÓN sirviendo carpeta 'dist'...");
     const distPath = path.join(process.cwd(), "dist");

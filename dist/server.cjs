@@ -312,24 +312,6 @@ Mari & Sim\xF3n \u{1F48D}`;
         res.status(502).json({ error: String(err) });
       }
     });
-    vite.middlewares.use((req, res, next) => {
-      const url = req.originalUrl || req.url || "";
-      if (url === "/" || url.startsWith("/?") || url.startsWith("/index.html")) {
-        const origEnd = res.end.bind(res);
-        let patched = false;
-        res.end = ((chunk, ...args) => {
-          if (!patched && typeof chunk === "string" && chunk.includes("<head>")) {
-            patched = true;
-            chunk = chunk.replace(
-              "<head>",
-              `<head><script>window.PHP_ENABLED=${phpAvailable};</script>`
-            );
-          }
-          return origEnd(chunk, ...args);
-        });
-      }
-      next();
-    });
     app.use(vite.middlewares);
   } else {
     console.log("\u{1F680} Iniciando en modo PRODUCCI\xD3N sirviendo carpeta 'dist'...");
