@@ -35461,6 +35461,18 @@ function wp(e) {
       a = Tp;
       break;
   }
+  // FIX local: el dotlottie-web solo soporta .lottie/.json y no puede renderizar GIFs.
+  // Si la fuente es una imagen (gif/png/jpg/webp), mostrarla como <img> en lugar del canvas Lottie.
+  if (typeof a === `string` && /\.(gif|png|jpe?g|webp|apng|avif)([?#].*)?$/i.test(a))
+    return f(`div`, {
+      style: { ...e.style, position: `relative`, width: `100%`, height: `100%`, display: `flex` },
+      children: p(`img`, {
+        src: a,
+        alt: ``,
+        decoding: `async`,
+        style: { width: `100%`, height: `100%`, objectFit: `contain`, display: `block` },
+      }),
+    });
   let [o, s] = l(!1);
   (_(() => {
     if ((s(!1), !n)) return;
