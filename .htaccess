@@ -1,0 +1,25 @@
+# ---------------------------------------------------------------------------
+# .htaccess para DonWeb cPanel (Ferozo) — App de boda + API PHP
+# Subir junto al contenido de dist/ en public_html, junto a api.php
+# ---------------------------------------------------------------------------
+
+RewriteEngine On
+
+# 1) Todas las llamadas a /api/* se resuelven contra api.php conservando la
+#    sub-ruta (/api/rsvp/CODE -> api.php/rsvp/CODE vía PATH_INFO)
+RewriteCond %{REQUEST_URI} ^/api/
+RewriteRule ^api/(.*)$ api.php/$1 [QSA,L]
+
+# 2) SPA: cualquier otra ruta que no sea archivo/carpeta real sirve index.html
+#    (para que /rsvp/MARISIMON y /admin funcionen con recarga directa)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . index.html [L]
+
+# 3) Protección de la base de datos: no exponer los JSON por HTTP (cualquier carpeta)
+<FilesMatch "^(db|emails)\.json$">
+  Require all denied
+</FilesMatch>
+
+# Bloqueo del directorio data/ (donde api.php guarda db.json) vía HTTP
+RedirectMatch 404 ^/data/
