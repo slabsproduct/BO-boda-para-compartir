@@ -38185,6 +38185,7 @@ var Jm,
                         rendersWithMotion: !0,
                         scopeId: `N5hMAFvBt`,
                         children: p(_e, {
+                          openInNewTab: !0,
                           azjbYCood: `999px`,
                           gHeOvXgAq: `https://ul.waze.com/ul?place=ChIJQyLxaHPpfZYRXVizldWYXXI&ll=-33.00214760%2C-69.17521280&navigate=yes&utm_campaign=live_map&utm_source=waze_website&utm_medium=lm_share_location`,
                           Goeh0UlpU: `Car`,
@@ -38211,6 +38212,7 @@ var Jm,
                         rendersWithMotion: !0,
                         scopeId: `N5hMAFvBt`,
                         children: p(_e, {
+                          openInNewTab: !0,
                           azjbYCood: `999px`,
                           gHeOvXgAq: `https://maps.app.goo.gl/5DypKSeZSw9CjCMF9`,
                           Goeh0UlpU: `Recurso 5.svg`,
@@ -40893,6 +40895,7 @@ e(() => {
                                         V4zLOktIr: { variant: Fg(`rR8gbhtfg`) },
                                       },
                                       children: p(_e, {
+                                        openInNewTab: !0,
                                         azjbYCood: `999px`,
                                         height: `100%`,
                                         hyoIEBZCr: `Confirma tu asistencia`,
@@ -41378,6 +41381,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             nodeId: `aJrqUSGGD`,
                                             scopeId: `cUeqT91wH`,
                                             children: p(_e, {
+                                              openInNewTab: !0,
                                               azjbYCood: `999px`,
                                               gHeOvXgAq: `https://ar.pinterest.com/MariAngel9/inspo-dresscode/`,
                                               height: `100%`,
@@ -41521,6 +41525,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             nodeId: `tEjKL9gsO`,
                                             scopeId: `cUeqT91wH`,
                                             children: p(_e, {
+                                              openInNewTab: !0,
                                               azjbYCood: `999px`,
                                               height: `100%`,
                                               hyoIEBZCr: `Seguinos en IG`,
@@ -41579,6 +41584,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             nodeId: `pVG4F7t5M`,
                                             scopeId: `cUeqT91wH`,
                                             children: p(_e, {
+                                              openInNewTab: !0,
                                               azjbYCood: `999px`,
                                               gHeOvXgAq: `https://www.google.com/maps/place/Plaza+General+Espejo/@-32.986405,-68.8847115,17z/data=!3m1!4b1!4m6!3m5!1s0x967e0aed4ea9997b:0xa2114953ee10c4dd!8m2!3d-32.9864095!4d-68.8821366!16s%2Fg%2F11c67r0cxc?authuser=0&entry=ttu&g_ep=EgoyMDI2MTAxMy4wIKXMDSoASAFQAw%3D%3D`,
                                               height: `100%`,
@@ -41644,6 +41650,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             nodeId: `XCi007VvJ`,
                                             scopeId: `cUeqT91wH`,
                                             children: p(_e, {
+                                              openInNewTab: !0,
                                               azjbYCood: `999px`,
                                               gHeOvXgAq: `https://ar.pinterest.com/MariAngel9/inspo-dresscode/`,
                                               height: `100%`,
@@ -41703,6 +41710,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             nodeId: `bHrt5hm8o`,
                                             scopeId: `cUeqT91wH`,
                                             children: p(_e, {
+                                              openInNewTab: !0,
                                               azjbYCood: `999px`,
                                               gHeOvXgAq: `https://www.google.com/maps/place/Plaza+General+Espejo/@-32.986405,-68.8847115,17z/data=!3m1!4b1!4m6!3m5!1s0x967e0aed4ea9997b:0xa2114953ee10c4dd!8m2!3d-32.9864095!4d-68.8821366!16s%2Fg%2F11c67r0cxc?authuser=0&entry=ttu&g_ep=EgoyMDI2MTAxMy4wIKXMDSoASAFQAw%3D%3D`,
                                               height: `100%`,
@@ -41750,6 +41758,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             nodeId: `I6j2nTgc9`,
                                             scopeId: `cUeqT91wH`,
                                             children: p(_e, {
+                                              openInNewTab: !0,
                                               azjbYCood: `999px`,
                                               height: `100%`,
                                               hyoIEBZCr: `Seguinos en IG`,
