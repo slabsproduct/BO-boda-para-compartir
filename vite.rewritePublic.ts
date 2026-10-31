@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import type { Plugin } from 'vite';
 
 /**
@@ -70,9 +72,6 @@ function rewriteRelativeAttrs(
 }
 
 export function rewritePublicPaths(): Plugin {
-  const fs = require('node:fs') as typeof import('node:fs');
-  const path = require('node:path') as typeof import('node:path');
-
   let base = '/';
   let publicDir = '';
   let outDir = '';
