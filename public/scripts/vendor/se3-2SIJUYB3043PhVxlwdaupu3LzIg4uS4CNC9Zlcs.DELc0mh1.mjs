@@ -41379,7 +41379,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             scopeId: `cUeqT91wH`,
                                             children: p(_e, {
                                               azjbYCood: `999px`,
-                                              gHeOvXgAq: `https://www.pinterest.com/MariAngel9/inspo-dresscode/`,
+                                              gHeOvXgAq: `https://ar.pinterest.com/MariAngel9/inspo-dresscode/`,
                                               height: `100%`,
                                               hyoIEBZCr: `Ver inspiración`,
                                               id: `aJrqUSGGD`,
@@ -41645,7 +41645,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             scopeId: `cUeqT91wH`,
                                             children: p(_e, {
                                               azjbYCood: `999px`,
-                                              gHeOvXgAq: `https://www.pinterest.com/MariAngel9/inspo-dresscode/`,
+                                              gHeOvXgAq: `https://ar.pinterest.com/MariAngel9/inspo-dresscode/`,
                                               height: `100%`,
                                               hyoIEBZCr: `Ver inspiración`,
                                               id: `XCi007VvJ`,
