@@ -43,7 +43,7 @@ export function assetUrl(path: string): string {
 
 /** URL de la home de Framer (iframe) conservando su cache-buster. */
 export function framerHomeUrl(): string {
-  return assetUrl("/framer-home.html") + "?revision=20261027-mobile-card-hint-scroll-check";
+  return assetUrl("/framer-home.html") + "?revision=20261101-external-links-newtab";
 }
 
 /**
