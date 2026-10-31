@@ -105,9 +105,11 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [dbStatus, setDbStatus] = useState<{
     engine: string;
-    compatibleWith: string[];
-    sqliteFile: string;
-    sqliteSize: string;
+    compatibleWith?: string[];
+    sqliteFile?: string;
+    sqliteSize?: string;
+    dataFile?: string;
+    dataSize?: string;
     totalInvitations: number;
     totalGuests: number;
   } | null>(null);
@@ -996,10 +998,10 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
                 </div>
                 <div>
                   <h3 className="font-serif font-bold text-xl sm:text-2xl text-[#363B1F]">
-                    Motor de Base de Datos SQLite 3
+                    Motor de Base de Datos {dbStatus?.engine ? dbStatus.engine.replace(/ \(.*\)$/, "") : "SQLite 3"}
                   </h3>
                   <p className="text-xs text-[#626262]">
-                    Base de datos local embebida, compatible nativamente con servidores DonWeb Argentina (Linux / cPanel / Node.js)
+                    Persistencia local en archivo JSON con escritura atómica, compatible nativamente con servidores DonWeb Argentina (Linux / cPanel)
                   </p>
                 </div>
               </div>
@@ -1022,11 +1024,11 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
             {/* Metrics Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="p-4 bg-[#FAF6F2] rounded-2xl border border-[#363B1F]/10">
-                <p className="text-[10px] font-mono uppercase tracking-wider text-[#626262]">Archivo SQLite</p>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-[#626262]">Archivo de Datos</p>
                 <p className="font-mono font-bold text-sm text-[#363B1F] mt-1 truncate">
-                  {dbStatus?.sqliteFile || 'wedding.sqlite'}
+                  {dbStatus?.dataFile || dbStatus?.sqliteFile || 'wedding.sqlite'}
                 </p>
-                <p className="text-[10px] text-[#626262] mt-0.5">Tamaño: {dbStatus?.sqliteSize || 'En disco'}</p>
+                <p className="text-[10px] text-[#626262] mt-0.5">Tamaño: {dbStatus?.dataSize || dbStatus?.sqliteSize || 'En disco'}</p>
               </div>
 
               <div className="p-4 bg-[#FAF6F2] rounded-2xl border border-[#363B1F]/10">
@@ -1062,11 +1064,10 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
               <div className="flex flex-wrap items-center gap-3">
                 <a
                   href="/api/admin/db/download-sqlite"
-                  download="wedding.sqlite"
                   className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#363B1F] text-[#FAF6F2] rounded-xl text-xs font-mono font-bold uppercase tracking-wider hover:bg-[#272B15] transition-colors shadow-xs"
                 >
                   <Download className="w-4 h-4" />
-                  Descargar wedding.sqlite
+                  Descargar Respaldo (.sql)
                 </a>
 
                 <a
