@@ -24,16 +24,48 @@ export function publicBase(): string {
   return pathname;
 }
 
+/** Modo de enrutado forzado por env: 'query' usa api.php?_route=..., default PATH_INFO. */
+const forcedQueryMode = (): boolean =>
+  (import.meta.env.VITE_API_ROUTE_MODE as string | undefined) === "query";
+
+/** ¿El server local inyectó PHP_ENABLED=false (dev sin binario php)? */
+declare global {
+  interface Window { PHP_ENABLED?: boolean }
+}
+
+function devWithoutPhp(): boolean {
+  return typeof window !== "undefined" && window.PHP_ENABLED === false;
+}
+
+/** Ruta PHP cruda según el modo de enrutado (PATH_INFO vs ?_route=). */
+function apiPathFor(route: string): string {
+  const r = route.replace(/^\//, "");
+  return publicBase() + (forcedQueryMode() ? "api.php?_route=" + encodeURIComponent("/" + r) : "api.php/" + r);
+}
+
+/** Ruta Express equivalente (backend Node de server.ts, solo existe en dev). */
+function expressPathFor(route: string): string {
+  const r = route.replace(/^\//, "").replace(/^api\/?/, "");
+  return publicBase().replace(/\/+$/, "") + "/api/" + r;
+}
+
 /**
- * Base de la API. Devuelve 'api.php?_route=' cuando se fuerza el modo query
- * (hostings donde PATH_INFO está deshabilitado), o 'api.php/' en modo normal.
- * El resultado es relativo a publicBase(), por lo que también funciona cuando
- * la vista se abre con ?view=rsvp sobre index.html.
+ * URL de una ruta de API. Elige automáticamente el backend disponible:
+ *   - Producción (DonWeb): siempre api.php (PATH_INFO o ?_route= según env).
+ *   - Desarrollo local sin PHP: '/api/...' de server.ts, que lee los mismos
+ *     datos precargados (src/data/db.json y src/data/emails.json).
+ * Así se evita el error "HTTP 200 en /api.php/admin/..." cuando el dev server
+ * no puede ejecutar PHP y respondía el index.html del SPA.
  */
+export function apiUrl(route: string): string {
+  const r = route.replace(/^\//, "");
+  return devWithoutPhp() ? expressPathFor(r) : apiPathFor(r);
+}
+
+/** Base de la API para concatenar rutas (mismo criterio que apiUrl). */
 export function apiBase(): string {
-  const useQueryRoute =
-    (import.meta.env.VITE_API_ROUTE_MODE as string | undefined) === "query";
-  return publicBase() + (useQueryRoute ? "api.php?_route=" : "api.php/");
+  if (devWithoutPhp()) return publicBase().replace(/\/+$/, "") + "/api/";
+  return publicBase() + (forcedQueryMode() ? "api.php?_route=" : "api.php/");
 }
 
 /**

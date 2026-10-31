@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { Invitation, Guest } from "../types";
 import { BrandLogo } from "../components/Brand/BrandLogo";
-import { apiBase } from "../lib/base";
+import { apiUrl } from "../lib/base";
 
 interface RsvpProps {
   initialCode?: string;
@@ -62,7 +62,7 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
     setErrorMessage(null);
 
     try {
-      const response = await fetch(apiBase() + `rsvp/${encodeURIComponent(codeToValidate)}`);
+      const response = await fetch(apiUrl(`rsvp/${encodeURIComponent(codeToValidate)}`));
       const data = await response.json();
 
       if (response.ok && data.success) {
@@ -107,7 +107,7 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
     }));
 
     try {
-      const response = await fetch(apiBase() + `rsvp/${encodeURIComponent(invitation.code)}`, {
+      const response = await fetch(apiUrl(`rsvp/${encodeURIComponent(invitation.code)}`), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
