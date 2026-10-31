@@ -2,6 +2,15 @@
  * Types for the Mari & Simón Wedding Platform
  */
 
+// Email simulado registrado por el RSVP (bandeja de entrada del Admin)
+export interface SimulatedEmail {
+  to: string;
+  toName: string;
+  subject: string;
+  body: string;
+  timestamp: string;
+}
+
 export interface Guest {
   name: string;
   isAttending: boolean;

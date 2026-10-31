@@ -10,8 +10,8 @@
  *   PUT    /api/admin/rsvps/:code
  *   DELETE /api/admin/rsvps/:code
  *   GET    /api/admin/db/status
- *   GET    /api/admin/db/download-sqlite   (devuelve el dump .sql equivalente)
- *   GET    /api/admin/db/download-sql
+ *   GET    /api/admin/db/download-backup   (descarga db.json como respaldo)
+ *   GET    /api/admin/db/download-sql      (dump .sql para migración futura)
  *   GET    /api/admin/emails
  *   DELETE /api/admin/emails
  *
@@ -410,9 +410,18 @@ try {
     ));
   }
 
+  // ===== /api/admin/db/download-backup =======================================
+  // Descarga directa del respaldo db.json (mismo comportamiento que server.ts).
+  if ($path === '/admin/db/download-backup') {
+    if (!file_exists(DB_PATH)) json_response(array('error' => 'Archivo de datos no encontrado.'), 404);
+    header('Content-Type: application/json; charset=utf-8');
+    header('Content-Disposition: attachment; filename="db.json"');
+    readfile(DB_PATH);
+    exit;
+  }
+
   // ===== /api/admin/db/download-sql ==========================================
-  // Genera un dump SQL equivalente al que producía generateSqlDump() en Node,
-  // utilizable para migrar los datos a MySQL si algún día se necesita.
+  // Dump SQL equivalente, utilizable para migrar los datos a MySQL si algún día se necesita.
   if ($path === '/admin/db/download-sql' || $path === '/admin/db/download-sqlite') {
     $invitations = read_invitations();
     $lines = array();

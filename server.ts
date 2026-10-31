@@ -119,8 +119,8 @@ async function startServer() {
       const emailBody = `¡Hola ${invitation.names}!\n\nHemos recibido tu confirmación...\n\nCon cariño,\nMari & Simón 💍`;
 
       writeEmail({
-        id: Math.random().toString(36).substr(2, 9),
         to: `invitados_${code.toLowerCase()}@boda-marisimon.com`,
+        toName: invitation.names,
         subject: `Confirmación de RSVP: ${invitation.names}`,
         body: emailBody,
         timestamp: new Date().toISOString()
@@ -132,31 +132,23 @@ async function startServer() {
     }
   });
 
-  app.get("/api/admin/db/status", async (req, res) => {
+  // Estado de la base de datos: motor único JSON atómico (compatible con cPanel/DonWeb vía api.php)
+  app.get("/api/admin/db/status", (req, res) => {
     try {
-      const sqliteInvs = await getInvitationsSqlite();
-      const sqliteExists = fs.existsSync(SQLITE_FILE);
+      const exists = fs.existsSync(DB_PATH);
       res.json({
-        engine: "SQLite 3",
-        sqliteFile: SQLITE_FILE,
-        sqliteSize: sqliteExists ? (fs.statSync(SQLITE_FILE).size / 1024).toFixed(1) + " KB" : "0 KB",
-        totalInvitations: sqliteInvs.length
+        engine: "JSON atómico",
+        dbFile: DB_PATH,
+        dbSize: exists ? (fs.statSync(DB_PATH).size / 1024).toFixed(1) + " KB" : "0 KB",
+        totalInvitations: readInvitations().length
       });
     } catch (err) { res.status(500).json({ error: String(err) }); }
   });
 
-  app.get("/api/admin/db/download-sqlite", (req, res) => {
-    if (fs.existsSync(SQLITE_FILE)) res.download(SQLITE_FILE, "wedding.sqlite");
-    else res.status(404).json({ error: "Archivo SQLite no encontrado." });
-  });
-
-  app.get("/api/admin/db/download-sql", async (req, res) => {
-    try {
-      const sql = await generateSqlDump();
-      res.setHeader("Content-Type", "application/sql");
-      res.setHeader("Content-Disposition", 'attachment; filename="boda_donweb_dump.sql"');
-      res.send(sql);
-    } catch (err) { res.status(500).json({ error: String(err) }); }
+  // Descarga de respaldo: volcado completo de db.json
+  app.get("/api/admin/db/download-backup", (req, res) => {
+    if (fs.existsSync(DB_PATH)) res.download(DB_PATH, "db.json");
+    else res.status(404).json({ error: "Archivo de datos no encontrado." });
   });
 
   app.get("/api/admin/emails", (req, res) => res.json(readEmails()));
@@ -184,7 +176,6 @@ async function startServer() {
       updatedAt: new Date().toISOString()
     };
 
-    await saveInvitationSqlite(newInvitation).catch(err => console.error("SQLite save error", err));
     const invitations = readInvitations();
     const existingIndex = invitations.findIndex(i => i.code.toUpperCase() === newInvitation.code);
     if (existingIndex !== -1) invitations[existingIndex] = newInvitation;
@@ -225,17 +216,13 @@ async function startServer() {
       guests: updatedGuests, updatedAt: new Date().toISOString()
     };
 
-    if (updatedCode !== targetCode) await deleteInvitationSqlite(targetCode).catch(() => {});
-    await saveInvitationSqlite(updatedInvitation).catch(err => console.error("SQLite save error", err));
-
     invitations[index] = updatedInvitation;
     writeInvitations(invitations);
     res.json({ success: true, invitation: updatedInvitation });
   });
 
-  app.delete("/api/admin/rsvps/:code", async (req, res) => {
+  app.delete("/api/admin/rsvps/:code", (req, res) => {
     const code = req.params.code.toUpperCase();
-    await deleteInvitationSqlite(code).catch(err => console.error("SQLite delete error", err));
     writeInvitations(readInvitations().filter(i => i.code.toUpperCase() !== code));
     res.json({ success: true });
   });
