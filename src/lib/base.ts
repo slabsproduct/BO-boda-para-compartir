@@ -28,12 +28,22 @@ export function publicBase(): string {
 const forcedQueryMode = (): boolean =>
   (import.meta.env.VITE_API_ROUTE_MODE as string | undefined) === "query";
 
-/** ¿El server local inyectó PHP_ENABLED=false (dev sin binario php)? */
+/**
+ * ¿Estamos en desarrollo local donde NO hay backend PHP?
+ * Criterios (cualquiera basta):
+ *   - import.meta.env.DEV: true solo con `vite`/dev server, NUNCA en el build
+ *     de producción. Es la señal más fiable: no depende de que server.ts
+ *     haya logrado inyectar window.PHP_ENABLED en el HTML.
+ *   - window.PHP_ENABLED === false: respaldo por si alguien sirve el código
+ *     fuente sin el flag de Vite.
+ * En producción (build de DonWeb) ambas señales son falsas -> siempre api.php.
+ */
 declare global {
   interface Window { PHP_ENABLED?: boolean }
 }
 
 function devWithoutPhp(): boolean {
+  if (import.meta.env.DEV) return true;
   return typeof window !== "undefined" && window.PHP_ENABLED === false;
 }
 
@@ -66,6 +76,74 @@ export function apiUrl(route: string): string {
 export function apiBase(): string {
   if (devWithoutPhp()) return publicBase().replace(/\/+$/, "") + "/api/";
   return publicBase() + (forcedQueryMode() ? "api.php?_route=" : "api.php/");
+}
+
+/**
+ * ¿El backend devumió un HTML en vez de JSON? (tp. el SPA fallback del dev
+ * server respondiendo index.html con status 200 ante una ruta inexistente).
+ */
+function looksLikeHtml(text: string, contentType: string): boolean {
+  if (contentType.includes("json")) return false;
+  const head = text.slice(0, 512).toLowerCase();
+  return (
+    contentType.includes("html") ||
+    head.includes("<!doctype html") ||
+    head.includes("<html") ||
+    head.includes("<head>")
+  );
+}
+
+/**
+ * fetch de solo-lectura con tolerancia a fallos de entorno:
+ *   - Si la URL primaria responde JSON -> se usa tal cual.
+ *   - Si falla (red, 4xx/5xx, o devolvió HTML como si fuera JSON) y hay
+ *     `fallbackUrl`, se reintenta contra el backend alternativo (Express en
+ *     dev / api.php en producción) ANTES de mostrar errores al usuario.
+ * Así el back-office no revienta cuando el dev server local intercepta
+ * `/api.php/*` o inyecta el index.html del SPA con HTTP 200.
+ */
+export async function fetchJsonWithFallback<T = any>(
+  primaryUrl: string,
+  fallbackUrl?: string,
+  init: RequestInit = {}
+): Promise<T> {
+  const attempt = async (url: string): Promise<T> => {
+    const res = await fetch(url, { cache: "no-store", ...init });
+    const ct = res.headers.get("content-type") || "";
+    if (!res.ok) throw new Error(`HTTP ${res.status} en ${url}`);
+    const text = await res.text();
+    if (looksLikeHtml(text, ct)) {
+      throw new Error(`Respuesta no-JSON (HTML) en ${url}`);
+    }
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new Error(`JSON inválido en ${url}`);
+    }
+  };
+
+  try {
+    return await attempt(primaryUrl);
+  } catch (errPrimary) {
+    if (fallbackUrl && fallbackUrl !== primaryUrl) {
+      console.warn(
+        `[api] "${primaryUrl}" falló (${String(errPrimary)}); reintentando vía "${fallbackUrl}".`
+      );
+      return await attempt(fallbackUrl);
+    }
+    throw errPrimary;
+  }
+}
+
+/** Par (URL primaria, URL alternativa) para una misma ruta lógica. */
+export function apiUrlPair(route: string): { primary: string; fallback: string } {
+  const r = route.replace(/^\//, "");
+  const php = apiPathFor(r);
+  const express = expressPathFor(r);
+  // En dev sin PHP lo primario es Express; en producción lo primario es PHP.
+  return devWithoutPhp()
+    ? { primary: express, fallback: php }
+    : { primary: php, fallback: express };
 }
 
 /**
