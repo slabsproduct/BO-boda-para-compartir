@@ -41126,7 +41126,7 @@ e(() => {
                                     loop: !0,
                                     progress: 0,
                                     speed: 1,
-                                    srcFile: `./assets/images/jkabfjkbaskfhasdbfasdhfasdfads.gif`,
+                                    srcFile: `/assets/images/jkabfjkbaskfhasdbfasdhfasdfads.gif`,
                                     srcType: `url`,
                                     srcUrl: `https://lottie.host/d826e0a7-b7e8-4072-8afe-c943ed2dd2ca/DpX3m5yT5Z.lottie`,
                                     style: { height: `100%`, width: `100%` },
