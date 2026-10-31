@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { assetUrl, framerHomeUrl, rewriteLocalAssetUrl } from "../lib/base";
 
 interface HomeProps {
   onRsvpClick: () => void;
@@ -207,12 +208,12 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       const applyWeddingGifs = () => {
         replaceWithGif(
           ".framer-a4ob5c-container",
-          "/assets/images/Couple_dancing_in_red_ink_20261024202145_alpha (1).gif?v=20261027-3",
+          assetUrl("/assets/images/Couple_dancing_in_red_ink_20261024202145_alpha (1).gif") + "?v=20261027-3",
           true
         );
         replaceWithGif(
           ".framer-11aifpr",
-          "/assets/images/Characters_walking_with_dog_20261024202041_alpha.gif?v=20261027-3"
+          assetUrl("/assets/images/Characters_walking_with_dog_20261024202041_alpha.gif") + "?v=20261027-3"
         );
       };
       const weddingGifObserver = new MutationObserver(applyWeddingGifs);
@@ -356,12 +357,12 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       >
         <div className="home-preloader-emblem" aria-hidden="true">
           <span className="home-preloader-ring" />
-          <img src="/favicon.svg" alt="" />
+          <img src={assetUrl("/favicon.svg")} alt="" />
         </div>
       </div>
       <iframe
         ref={frameRef}
-        src="/framer-home.html?revision=20261027-mobile-card-hint-scroll-check"
+        src={framerHomeUrl()}
         title="Boda de Mari y Simón"
         className="fixed inset-x-0 top-0 z-40 block w-full border-0"
         style={{ height: "100vh" }}

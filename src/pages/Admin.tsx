@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { Invitation, Guest } from "../types";
 import { BrandLogo } from "../components/Brand/BrandLogo";
+import { apiBase } from "../lib/base";
 
 interface AdminProps {
   onBackToRSVP: () => void;
@@ -116,15 +117,15 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const invRes = await fetch("/api/admin/rsvps");
+      const invRes = await fetch(apiBase() + "admin/rsvps");
       const invData = await invRes.json();
       setInvitations(invData);
 
-      const emailRes = await fetch("/api/admin/emails");
+      const emailRes = await fetch(apiBase() + "admin/emails");
       const emailData = await emailRes.json();
       setEmails(emailData);
 
-      const statusRes = await fetch("/api/admin/db/status").then(r => r.json()).catch(() => null);
+      const statusRes = await fetch(apiBase() + "admin/db/status").then(r => r.json()).catch(() => null);
       if (statusRes) setDbStatus(statusRes);
     } catch (err) {
       console.error(err);
@@ -157,7 +158,7 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
     setErrorMessage(null);
 
     try {
-      const response = await fetch("/api/admin/rsvps", {
+      const response = await fetch(apiBase() + "admin/rsvps", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -203,7 +204,7 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
     if (!editingInvitation || !editFormData) return;
 
     try {
-      const response = await fetch(`/api/admin/rsvps/${editingInvitation.code}`, {
+      const response = await fetch(apiBase() + `admin/rsvps/${encodeURIComponent(editingInvitation.code)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editFormData)
@@ -229,7 +230,7 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
     if (!confirm(`¿Estás seguro de que querés eliminar la invitación con el código ${code}?`)) return;
 
     try {
-      const response = await fetch(`/api/admin/rsvps/${code}`, {
+      const response = await fetch(apiBase() + `admin/rsvps/${encodeURIComponent(code)}`, {
         method: "DELETE"
       });
 
@@ -250,7 +251,7 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
     if (!confirm("¿Querés limpiar la bandeja de simulación de emails de la boda?")) return;
 
     try {
-      await fetch("/api/admin/emails", {
+      await fetch(apiBase() + "admin/emails", {
         method: "DELETE"
       });
       setEmails([]);
@@ -1062,7 +1063,7 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
               </h4>
               <div className="flex flex-wrap items-center gap-3">
                 <a
-                  href="/api/admin/db/download-backup"
+                  href={apiBase() + "admin/db/download-backup"}
                   className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#363B1F] text-[#FAF6F2] rounded-xl text-xs font-mono font-bold uppercase tracking-wider hover:bg-[#272B15] transition-colors shadow-xs"
                 >
                   <Download className="w-4 h-4" />
