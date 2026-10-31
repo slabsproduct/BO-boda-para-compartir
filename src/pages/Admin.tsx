@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import { Invitation, Guest } from "../types";
 import { BrandLogo } from "../components/Brand/BrandLogo";
-import { apiUrl } from "../lib/base";
+import { apiUrl, apiUrlPair, fetchJsonWithFallback } from "../lib/base";
 
 interface AdminProps {
   onBackToRSVP: () => void;
@@ -117,22 +117,19 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Nota: en DonWeb estas peticiones terminan en api.php. Si el archivo
-      // data/ no se puede escribir (permisos), PHP responde 500 con un HTML de
-      // error; por eso validamos res.ok y el content-type ANTES de parsear
-      // JSON, y mostramos el código real para diagnosticar el problema.
-      const readJsonSafe = async (url: string): Promise<any> => {
-        const res = await fetch(url, { cache: "no-store" });
-        const ct = res.headers.get("content-type") || "";
-        if (!res.ok || !ct.includes("json")) {
-          throw new Error(`HTTP ${res.status} en ${url}`);
-        }
-        return res.json();
+      // En DonWeb estas peticiones terminan en api.php; en dev local van a las
+      // rutas /api/* de server.ts (ambas leen los mismos datos precargados).
+      // apiUrlPair() nos da ambas URLs: si la primaria falla (red, 4xx/5xx o
+      // HTML en vez de JSON) reintentamos contra la alternativa antes de
+      // mostrar errores al usuario.
+      const readJsonSafe = async (route: string): Promise<any> => {
+        const pair = apiUrlPair(route);
+        return fetchJsonWithFallback(pair.primary, pair.fallback);
       };
 
       const [invData, emailData] = await Promise.all([
-        readJsonSafe(apiUrl("admin/rsvps")),
-        readJsonSafe(apiUrl("admin/emails")),
+        readJsonSafe("admin/rsvps"),
+        readJsonSafe("admin/emails"),
       ]);
 
       // Compatibilidad: server.ts devuelve un array plano; api.php también,
@@ -142,7 +139,7 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
 
       let statusRes: any = null;
       try {
-        statusRes = await readJsonSafe(apiUrl("admin/db/status"));
+        statusRes = await readJsonSafe("admin/db/status");
       } catch {
         statusRes = null; // informativo: no debe romper la pantalla de admin
       }

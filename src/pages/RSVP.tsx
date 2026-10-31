@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { Invitation, Guest } from "../types";
 import { BrandLogo } from "../components/Brand/BrandLogo";
-import { apiUrl } from "../lib/base";
+import { apiUrl, apiUrlPair, fetchJsonWithFallback } from "../lib/base";
 
 interface RsvpProps {
   initialCode?: string;
@@ -62,10 +62,10 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
     setErrorMessage(null);
 
     try {
-      const response = await fetch(apiUrl(`rsvp/${encodeURIComponent(codeToValidate)}`));
-      const data = await response.json();
+      const pair = apiUrlPair(`rsvp/${encodeURIComponent(codeToValidate)}`);
+      const data = await fetchJsonWithFallback<any>(pair.primary, pair.fallback);
 
-      if (response.ok && data.success) {
+      if (data.success) {
         setInvitation(data.invitation);
         setGuestsState(data.invitation.guests || []);
         setGeneralStatus(data.invitation.status === 'declined' ? 'declined' : 'confirmed');

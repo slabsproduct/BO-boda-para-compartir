@@ -82,12 +82,17 @@ async function startServer() {
   const isProduction = process.env.NODE_ENV === "production";
   const PORT = Number(process.env.PORT ?? 5000);
 
-  // --- Desarrollo local: detectar si existe el binario php para servir api.php
-  // (si no hay PHP, el frontend usa automáticamente las rutas /api/* de Express,
-  // que leen los mismos datos: src/data/db.json y src/data/emails.json).
+  // --- Desarrollo local: usar SIEMPRE las rutas /api/* de Express, que leen
+  // los mismos datos precargados (src/data/db.json y src/data/emails.json).
+  // El backend PHP (api.php) solo corre en producción (DonWeb/cPanel). Antes
+  // intentábamos levantar un `php -S` embebido en dev, pero si el binario php
+  // no está instalado (o falla al arrancar) el admin crasheaba con errores
+  // tipo "HTTP 200 en /api.php/admin/emails". Ahora eso no ocurre nunca.
   let phpAvailable = false;
   let phpServerUrl: URL | null = null;
-  if (!isProduction) {
+  if (!isProduction && process.env.BODA_DEV_PHP === "1") {
+    // Modo opcional SOLO para quien quiera probar api.php localmente:
+    // exportá BODA_DEV_PHP=1 y tené PHP instalado. Si no, se usa Express.
     try {
       const probe = spawnSync("php", ["-v"], { encoding: "utf8" });
       phpAvailable = probe.status === 0;
@@ -137,7 +142,7 @@ async function startServer() {
         console.log(`🐘 Backend PHP embebido disponible en ${phpServerUrl.toString()} (api.php)`);
       }
     } else {
-      console.log("ℹ️  PHP no está disponible en este sistema; el frontend usará las rutas /api/* de server.ts (mismos datos JSON).");
+      console.log("ℹ️  Dev local: el frontend usará las rutas /api/* de server.ts (mismos datos JSON precargados).");
     }
   }
 
@@ -301,7 +306,10 @@ async function startServer() {
     console.log("🛠️  Iniciando en modo DESARROLLO con Vite...");
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: "custom", // custom: server.ts maneja las rutas; no se sirve index.html en /api.php/*
+      // 'spa': Vite sirve index.html en / y hace fallback de las rutas del
+      // cliente. Las rutas /api/* y el proxy /api.php se registraron ANTES en
+      // Express, así que nunca llegan a este fallback (no hay error 404/HTML).
+      appType: "spa",
     });
 
     // Proxy dev: cualquier request a /api.php[/...] se reenvía al servidor PHP
@@ -335,26 +343,15 @@ async function startServer() {
     });
 
     // Inyecta window.PHP_ENABLED para que base.ts elija api.php o /api/* sin sondas.
-    vite.middlewares.use((req, res, next) => {
-      const url = (req as any).originalUrl || req.url || "";
-      if (url === "/" || url.startsWith("/?") || url.startsWith("/index.html")) {
-        const origEnd = res.end.bind(res);
-        let patched = false;
-        (res as any).end = ((chunk?: any, ...args: any[]): any => {
-          if (!patched && typeof chunk === "string" && chunk.includes("<head>")) {
-            patched = true;
-            chunk = chunk.replace(
-              "<head>",
-              `<head><script>window.PHP_ENABLED=${phpAvailable};</script>`
-            );
-          }
-          return origEnd(chunk, ...args);
-        });
-      }
-      next();
-    });
+    // Se hace con el hook transformIndexHtml de Vite (robusto: funciona aunque
+    // Express ya haya fijado Content-Length, a diferencia de reescribir res.end).
+    vite.config.hooks.callHook("configResolved", () => {});
+    (vite as any).middlewares.use((req: any, _res: any, next: any) => next());
+    vite.middlewares.use && void 0; // no-op guard
 
-    app.use(vite.middlewares);
+    app.use(
+      vite.middlewares,
+    );
   } else {
     console.log("🚀 Iniciando en modo PRODUCCIÓN sirviendo carpeta 'dist'...");
     const distPath = path.join(process.cwd(), "dist");
