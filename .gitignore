@@ -1,2 +1,2 @@
-*.mjs.map
-public/scripts/vendor/
+dist/
+tmp/
