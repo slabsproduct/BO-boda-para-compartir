@@ -117,19 +117,40 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const invRes = await fetch(apiBase() + "admin/rsvps");
-      const invData = await invRes.json();
-      setInvitations(invData);
+      // Nota: en DonWeb estas peticiones terminan en api.php. Si el archivo
+      // data/ no se puede escribir (permisos), PHP responde 500 con un HTML de
+      // error; por eso validamos res.ok y el content-type ANTES de parsear
+      // JSON, y mostramos el código real para diagnosticar el problema.
+      const readJsonSafe = async (url: string): Promise<any> => {
+        const res = await fetch(url, { cache: "no-store" });
+        const ct = res.headers.get("content-type") || "";
+        if (!res.ok || !ct.includes("json")) {
+          throw new Error(`HTTP ${res.status} en ${url}`);
+        }
+        return res.json();
+      };
 
-      const emailRes = await fetch(apiBase() + "admin/emails");
-      const emailData = await emailRes.json();
-      setEmails(emailData);
+      const [invData, emailData] = await Promise.all([
+        readJsonSafe(apiBase() + "admin/rsvps"),
+        readJsonSafe(apiBase() + "admin/emails"),
+      ]);
 
-      const statusRes = await fetch(apiBase() + "admin/db/status").then(r => r.json()).catch(() => null);
+      // Compatibilidad: server.ts devuelve un array plano; api.php también,
+      // pero si alguna versión devuelve {"invitations": [...]} lo normalizamos.
+      setInvitations(Array.isArray(invData) ? invData : (invData?.invitations ?? []));
+      setEmails(Array.isArray(emailData) ? emailData : (emailData?.emails ?? []));
+
+      let statusRes: any = null;
+      try {
+        statusRes = await readJsonSafe(apiBase() + "admin/db/status");
+      } catch {
+        statusRes = null; // informativo: no debe romper la pantalla de admin
+      }
       if (statusRes) setDbStatus(statusRes);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setErrorMessage("Error de conexión al obtener datos de administración.");
+      const detail = err && err.message ? ` (${err.message})` : "";
+      setErrorMessage("Error de conexión al obtener datos de administración." + detail);
     } finally {
       setLoading(false);
     }

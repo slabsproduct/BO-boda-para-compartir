@@ -36,6 +36,19 @@ export function apiBase(): string {
   return publicBase() + (useQueryRoute ? "api.php?_route=" : "api.php/");
 }
 
+/**
+ * URL de la vista RSVP local (misma app, query ?view=rsvp). Sustituye al link
+ * externo hardcodeado por Framer (https://bodamariysimon.online/form) en el
+ * botón "Confirmar asistencia" del header.
+ */
+export function rsvpViewUrl(): string {
+  const base = publicBase();
+  const idx = window.location.href.indexOf(base);
+  // Página raíz de la app (index.html) + ?view=rsvp, aunque estemos en /boda/.
+  const root = idx >= 0 ? window.location.href.slice(0, idx + base.length) : base;
+  return root + "?view=rsvp";
+}
+
 /** URL de un recurso estático local ("/favicon.svg", "/assets/images/x.gif", ...) */
 export function assetUrl(path: string): string {
   return publicBase() + trimTrailing(path).replace(/^\/+/, "");
