@@ -23,3 +23,8 @@ RewriteRule . index.html [L]
 
 # Bloqueo del directorio data/ (donde api.php guarda db.json) vía HTTP
 RedirectMatch 404 ^/data/
+
+# MIME types de video: algunos cPanel viejos no sirven .webm con el type correcto
+# y Safari/iOS rechaza la reproduccion si llega como application/octet-stream.
+AddType video/webm .webm
+AddType video/mp4 .mp4

@@ -35450,8 +35450,11 @@ var Sp,
 // dibuja cada frame en un canvas 2D. createImageBitmap con colorSpaceConversion
 // "none" preserva premultiplied alpha en WebKit; si no hay soporte, fallback a
 // <video> clasico (muted + playsInline para autoplay en iOS).
-var Ap = f((Ap) => {
-  let { src: e, loop: t = !0, autoplay: n = !0 } = Ap,
+// FIX local: se reemplaza forwardRef (f) por un componente comun (p/React.createElement
+// ya esta en el bundle). forwardRef con funcion de render devolvia undefined como tipo
+// y rompia el render ("Cannot read properties of undefined (reading 'key')").
+var Ap = (e) => {
+  let { src: v, loop: t = !0, autoplay: n = !0 } = e,
     [r, i] = l(!1),
     o = R(null),
     s = R(null);
@@ -35471,22 +35474,17 @@ var Ap = f((Ap) => {
     }
     let u = !0,
       h = null,
-      v = () => {
-        if (!u) return;
-        let e = requestAnimationFrame(v);
-        h = e;
-      },
       g = () => {
         u &&
-          (typeof a.requestVideoFrameCallback == `function`
-            ? a.requestVideoFrameCallback(m)
+          (typeof c.requestVideoFrameCallback == `function`
+            ? c.requestVideoFrameCallback(m)
             : (h = requestAnimationFrame(m)));
       },
       m = async () => {
         if (!u) return;
         try {
-          if (a.readyState >= 2 && a.videoWidth > 0) {
-            let e = await createImageBitmap(a, { colorSpaceConversion: `none` });
+          if (c.readyState >= 2 && c.videoWidth > 0) {
+            let e = await createImageBitmap(c, { colorSpaceConversion: `none` });
             (a.width !== e.width || a.height !== e.height) &&
               ((a.width = e.width), (a.height = e.height)),
               d.clearRect(0, 0, a.width, a.height),
@@ -35496,35 +35494,35 @@ var Ap = f((Ap) => {
         } catch (e) {}
         g();
       };
-    a.preload = `auto`,
-      a.muted = !0,
-      a.playsInline = !0,
-      a.loop = !!t,
-      (a.src = e),
-      a.addEventListener(`canplay`, () => {
-        n && a.play().catch(() => {}), g();
+    (c.preload = `auto`),
+      (c.muted = !0),
+      (c.playsInline = !0),
+      (c.loop = !!t),
+      (c.src = v),
+      c.addEventListener(`canplay`, () => {
+        n && c.play().catch(() => {}), g();
       }),
-      a.addEventListener(`ended`, () => {
+      c.addEventListener(`ended`, () => {
         t || cancelAnimationFrame(h);
       });
-    let y = () => a.play().catch(() => {});
+    let y = () => c.play().catch(() => {});
     return (
       document.addEventListener(`visibilitychange`, y),
       () => {
         (u = !1),
           cancelAnimationFrame(h),
           document.removeEventListener(`visibilitychange`, y),
-          a.pause(),
-          a.removeAttribute(`src`),
-          a.load();
+          c.pause(),
+          c.removeAttribute(`src`),
+          c.load();
       }
     );
-  }), [e, t, n]);
+  }), [v, t, n]);
   let a = { width: `100%`, height: `100%`, objectFit: `contain`, display: `block` };
   return r
     ? p(`video`, {
         ref: o,
-        src: e,
+        src: v,
         autoPlay: n,
         loop: t,
         muted: !0,
@@ -35537,10 +35535,15 @@ var Ap = f((Ap) => {
     : f(`div`, {
         style: { position: `relative`, width: `100%`, height: `100%`, display: `flex` },
         children: [
-          p(`canvas`, { ref: o, style: { ...a, position: `absolute`, inset: 0 } }),
+          p(`canvas`, {
+            ref: o,
+            "data-alpha-video-canvas": ``,
+            "aria-label": `Animaci\u00f3n del cronograma`,
+            style: { ...a, position: `absolute`, inset: 0, background: `transparent` },
+          }),
           p(`video`, {
             ref: s,
-            src: e,
+            src: v,
             muted: !0,
             playsInline: !0,
             loop: t,
@@ -35551,7 +35554,7 @@ var Ap = f((Ap) => {
           }),
         ],
       });
-});
+};
 function wp(e) {
   let t = z.current() === z.canvas,
     [n, r] = l(null),
