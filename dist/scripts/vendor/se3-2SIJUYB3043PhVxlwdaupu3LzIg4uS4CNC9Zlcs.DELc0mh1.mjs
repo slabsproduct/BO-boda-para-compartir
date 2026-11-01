@@ -35445,146 +35445,137 @@ var Sp,
         `framer-dot-lottie-controls`
       )));
   });
-// FIX local: reproductor <video>+<canvas> para videos CON ALPHA (WebM VP8/VP9).
-// Safari/iOS (<16.4) NO decodifica WebM y ademas no compone el alpha de <video>
-// en DOM (fondo negro). Estrategia: si el navegador soporta WebM, se oculta el
-// <video> (opacity:0) y cada frame se pinta en un canvas 2D mediante
-// createImageBitmap({colorSpaceConversion:"none"}) que conserva el canal alfa en
-// WebKit. Si NO soporta WebM (iPhone viejo), se hace fallback al MP4 H.264 opaco
-// mostrado como <video> directo (sin canvas => sin rectangulo negro).
-// Se usa un componente plano (sin forwardRef) porque forwardRef con funcion de
-// render devolvia undefined como tipo y rompia el render ('key' of undefined).
-// FIX local: variable propia (antes reutilizaba `Mp`, que colisionaba con una
-// funcion vendor declarada mas abajo en el scope -> ReferenceError TDZ y el
-// bundle completo moria => la web cargaba pero el video NO).
-var AlphaMp4Fallback = !1;
+// Keep the initial video element identical to Framer's SSR markup; enhance WebM
+// with a canvas only after hydration so React can hydrate the exported page.
 var Ap = (e) => {
   let { src: v, loop: t = !0, autoplay: n = !0 } = e,
-    [r, i] = l(!1),
-    o = R(null),
-    s = R(null);
+    o = R(null);
   (_(() => {
-    let a = o.current,
-      c = s.current;
-    // FIX local: con el estado de fallback activo `o` es el <video> y `s` es null;
-    // salir temprano evita escribir propiedades sobre null (TypeError post-hidratacion).
-    if (!a || !c || !c.canPlayType) return;
-    let d = a.getContext(`2d`);
-    // FIX local: el recurso es VP8 con alpha (no VP9). canPlayType("...codecs=vp9")
-    // devolvia "" incluso en Chrome/desktop -> el canvas nunca pintaba y el <video>
-    // quedaba opacity:0 => "no carga el video". Se pregunta por el codec real segun
-    // la extension y se acepta cualquier respuesta no vacia ("probably"/"maybe").
-    let ext = ((v.split(`?`)[0].split(`#`)[0].match(/\.(mp4|webm|m4v|mov)$/i) || [])[1] || ``).toLowerCase();
-    let isWebm = ext === `webm`;
-    let mime = isWebm ? `video/webm` : `video/mp4`;
-    let codecQ = isWebm ? `video/webm; codecs="vp8"` : `video/mp4; codecs="avc1.42E01E"`;
-    let okCodec = !1;
-    try {
-      okCodec = !!(c.canPlayType && (c.canPlayType(codecQ) || c.canPlayType(mime)));
-    } catch (e) {}
-    // iOS/Safari antiguo no decodifica WebM: usar MP4 H.264 (opaco) como respaldo.
-    if (isWebm && !okCodec) {
-      i(!0);
-      AlphaMp4Fallback = !0;
-      return;
-    }
-    // solo tiene sentido el pipeline de canvas para WebM con alpha; los MP4 se
-    // muestran directo como <video>.
-    if (!isWebm) {
-      i(!0);
-      return;
-    }
-    if (!d || typeof createImageBitmap != `function` || !okCodec) {
-      i(!0);
-      return;
-    }
-    let u = !0,
-      h = null,
-      g = () => {
-        u &&
-          (typeof c.requestVideoFrameCallback == `function`
-            ? c.requestVideoFrameCallback(m)
-            : (h = requestAnimationFrame(m)));
-      },
-      m = async () => {
-        if (!u) return;
-        try {
-          if (c.readyState >= 2 && c.videoWidth > 0) {
-            let e = await createImageBitmap(c, { colorSpaceConversion: `none` });
-            (a.width !== e.width || a.height !== e.height) &&
-              ((a.width = e.width), (a.height = e.height)),
-              d.clearRect(0, 0, a.width, a.height),
-              d.drawImage(e, 0, 0),
-              e.close && e.close();
-          }
-        } catch (e) {}
-        g();
-      };
-    (c.preload = `auto`),
-      (c.muted = !0),
-      (c.playsInline = !0),
-      (c.loop = !!t),
-      (c.src = AlphaMp4Fallback ? `assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4` : v),
-      c.addEventListener(`canplay`, () => {
-        n && c.play().catch(() => {}), g();
-      }),
-      c.addEventListener(`ended`, () => {
-        t || cancelAnimationFrame(h);
-      });
-    let y = () => c.play().catch(() => {});
-    return (
-      document.addEventListener(`visibilitychange`, y),
-      () => {
-        (u = !1),
-          cancelAnimationFrame(h),
-          document.removeEventListener(`visibilitychange`, y),
-          c.pause(),
-          c.removeAttribute(`src`),
-          c.load();
+    let a = o.current;
+    if (!a) return;
+    let c = v.startsWith(`/`) ? v.slice(1) : v,
+      d = `assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4`,
+      f = /\.webm(?:[?#]|$)/i.test(c),
+      m = !1,
+      M = !1;
+    if (f) {
+      try {
+        m = !!(a.canPlayType(`video/webm; codecs="vp8"`) || a.canPlayType(`video/webm`));
+      } catch (e) {
+        console.warn(`[video] No se pudo comprobar soporte WebM; se usará el MP4 de respaldo.`, e);
       }
-    );
+    }
+    let h = null,
+      g = null,
+      y = !0,
+      b = 0,
+      u = null,
+      x = null,
+      E = () => {
+        if (!y) return;
+        if (typeof a.requestVideoFrameCallback == `function`) {
+          g = a.requestVideoFrameCallback(C);
+        } else {
+          h = requestAnimationFrame(C);
+        }
+      },
+      C = async () => {
+        if (!y) return;
+        if (a.readyState >= 2 && a.videoWidth > 0) {
+          try {
+            let e = await createImageBitmap(a, { colorSpaceConversion: `none` });
+            if (!y) {
+              e.close && e.close();
+              return;
+            }
+            (u.width !== e.width || u.height !== e.height) && ((u.width = e.width), (u.height = e.height));
+            x.clearRect(0, 0, u.width, u.height);
+            x.drawImage(e, 0, 0);
+            e.close && e.close();
+            a.style.opacity = `0`;
+            b = 0;
+          } catch (e) {
+            if (++b >= 3) {
+              console.warn(`[video] No se pudo dibujar WebM en canvas; se mostrará el video directo.`, e);
+              u.remove();
+              u = null;
+              a.style.opacity = `1`;
+              y = !1;
+              return;
+            }
+          }
+        }
+        E();
+      },
+      k = () => {
+        if (!f) return;
+        if (M) {
+          y = !1;
+          u && u.remove();
+          u = null;
+          a.style.opacity = `1`;
+          console.error(`[video] Falló la reproducción del WebM y del MP4 de respaldo.`);
+          return;
+        }
+        M = !0;
+        y = !1;
+        u && u.remove();
+        u = null;
+        a.style.opacity = `1`;
+        a.src = d;
+        a.load();
+        n && a.play().catch(() => {});
+      },
+      w = () => n && a.play().catch(() => {}),
+      S = () => {
+        if (!f || !m || typeof createImageBitmap != `function`) return;
+        u = document.createElement(`canvas`);
+        u.setAttribute(`aria-hidden`, `true`);
+        u.style.cssText = `position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;background:transparent;pointer-events:none`;
+        a.parentElement && a.parentElement.insertBefore(u, a);
+        x = u.getContext(`2d`);
+        if (!x) {
+          u.remove();
+          u = null;
+          return;
+        }
+        E();
+      };
+    a.addEventListener(`error`, k);
+    a.addEventListener(`canplay`, w);
+    if (f && !m) {
+      M = !0;
+      a.src = d;
+      a.load();
+    } else {
+      S();
+    }
+    n && a.play().catch(() => {});
+    return () => {
+      y = !1;
+      if (h !== null) cancelAnimationFrame(h);
+      if (g !== null && typeof a.cancelVideoFrameCallback == `function`) a.cancelVideoFrameCallback(g);
+      a.removeEventListener(`error`, k);
+      a.removeEventListener(`canplay`, w);
+      u && u.remove();
+      a.style.opacity = `1`;
+    };
   }), [v, t, n]);
-  let a = { width: `100%`, height: `100%`, objectFit: `contain`, display: `block` };
-  return r
-    ? p(`div`, {
-        style: { position: `relative`, width: `100%`, height: `100%`, display: `flex` },
-        children: p(`video`, {
-        ref: o,
-        src: AlphaMp4Fallback ? `assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4` : v,
-        "data-webm-src": v,
-        "data-mp4-src": `assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4`,
-        autoPlay: n,
-        loop: t,
-        muted: !0,
-        playsInline: !0,
-        preload: `auto`,
-        disablePictureInPicture: !0,
-        controlsList: `nodownload`,
-        style: { ...a, background: `transparent` },
-        }),
-      })
-    : f(`div`, {
-        style: { position: `relative`, width: `100%`, height: `100%`, display: `flex` },
-        children: [
-          p(`canvas`, {
-            ref: o,
-            "data-alpha-video-canvas": ``,
-            "aria-label": `Animaci\u00f3n del cronograma`,
-            style: { ...a, position: `absolute`, inset: 0, background: `transparent` },
-          }),
-          p(`video`, {
-            ref: s,
-            src: v,
-            muted: !0,
-            playsInline: !0,
-            loop: t,
-            preload: `auto`,
-            ariaHidden: !0,
-            tabIndex: -1,
-            style: { ...a, position: `absolute`, inset: 0, opacity: 0, pointerEvents: `none` },
-          }),
-        ],
-      });
+  return p(`video`, {
+    ref: o,
+    src: v.startsWith(`/`) ? v.slice(1) : v,
+    autoPlay: n,
+    loop: t,
+    muted: !0,
+    playsInline: !0,
+    preload: `auto`,
+    disablePictureInPicture: !0,
+    controlsList: `nodownload`,
+    "webkit-playsinline": ``,
+    "x5-video-player-type": `h5`,
+    "aria-label": `Animaci\u00f3n del cronograma`,
+    style: { width: `100%`, height: `100%`, objectFit: `contain`, display: `block`, background: `transparent` },
+  });
 };
 function wp(e) {
   let t = z.current() === z.canvas,
@@ -35614,23 +35605,12 @@ function wp(e) {
         style: { width: `100%`, height: `100%`, objectFit: `contain`, display: `block` },
       }),
     });
-  // FIX local: fuente en video (.mp4/.webm). dotlottie-web no puede reproducir videos,
-  // se reemplaza por un <video>. En iOS/Safari la reproduccion automatica solo esta
-  // permitida si el video esta muted (y ademas playsinline para no abrir el player
-  // nativo a pantalla completa); se anade preload=auto y loop para replicar el GIF.
-  // El recurso tiene ALPHA (WebM VP9 con canal alfa): Safari/iOS NO decodifica alpha
-  // en <video>, por lo que se renderiza frame a frame sobre un <canvas> 2D usando
-  // createImageBitmap({colorSpaceConversion:"none"}) para preservar la transparencia
-  // (evita la composicion sobre negro). Fallback a <video> si falta soporte de canvas.
+  // Keep the video as the direct Suspense child so its client tree matches Framer SSR.
   if (typeof a === `string` && /\.(mp4|webm|m4v|mov)([?#].*)?$/i.test(a))
-    return f(`div`, {
-      "data-alpha-fallback-mp4": ``,
-      style: { ...e.style, position: `relative`, width: `100%`, height: `100%`, display: `flex` },
-      children: p(Ap, {
-        src: a,
-        loop: e.loop !== !1,
-        autoplay: e.autoplay !== !1,
-      }),
+    return p(Ap, {
+      src: a,
+      loop: e.loop !== !1,
+      autoplay: e.autoplay !== !1,
     });
   let [o, s] = l(!1);
   (_(() => {
@@ -40519,7 +40499,7 @@ e(() => {
                                     objectFit: `cover`,
                                     playing: !0,
                                     posterEnabled: !0,
-                                    srcFile: `../..assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4`,
+                                    srcFile: `../../assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4`,
                                     srcType: `Upload`,
                                     srcUrl: `https://framerusercontent.com/assets/MLWPbW1dUQawJLhhun3dBwpgJak.mp4`,
                                     startTime: 0,

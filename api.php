@@ -495,10 +495,12 @@ function sql_str($s) {
  *   RewriteEngine On
  *
  *   # 1) Todas las llamadas a /api/* van a api.php conservando la sub-ruta
- *   RewriteCond %{REQUEST_URI} ^/api/
  *   RewriteRule ^api/(.*)$ api.php/$1 [QSA,L]
  *
- *   # 2) SPA: cualquier otra ruta sirve index.html (React Router / rutas limpias)
+ *   # 2) Bloquear acceso HTTP a la carpeta de datos
+ *   RewriteRule ^data(?:/|$) - [F,NC,L]
+ *
+ *   # 3) SPA: cualquier otra ruta sirve index.html (React Router / rutas limpias)
  *   RewriteCond %{REQUEST_FILENAME} !-f
  *   RewriteCond %{REQUEST_FILENAME} !-d
  *   RewriteRule . index.html [L]
