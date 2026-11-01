@@ -35473,6 +35473,27 @@ function wp(e) {
         style: { width: `100%`, height: `100%`, objectFit: `contain`, display: `block` },
       }),
     });
+  // FIX local: fuente en video (.mp4/.webm). dotlottie-web no puede reproducir videos,
+  // se reemplaza por un <video>. En iOS/Safari la reproduccion automatica solo esta
+  // permitida si el video esta muted (y ademas playsinline para no abrir el player
+  // nativo a pantalla completa); se anade preload=auto y loop para replicar el GIF.
+  if (typeof a === `string` && /\.(mp4|webm|m4v|mov)([?#].*)?$/i.test(a))
+    return f(`div`, {
+      style: { ...e.style, position: `relative`, width: `100%`, height: `100%`, display: `flex` },
+      children: p(`video`, {
+        src: a,
+        autoPlay: !0,
+        loop: e.loop !== !1,
+        muted: !0,
+        playsInline: !0,
+        preload: `auto`,
+        disablePictureInPicture: !0,
+        controlsList: `nodownload`,
+        "webkit-playsinline": ``,
+        "x5-video-player-type": `h5`,
+        style: { width: `100%`, height: `100%`, objectFit: `contain`, display: `block`, background: `transparent` },
+      }),
+    });
   let [o, s] = l(!1);
   (_(() => {
     if ((s(!1), !n)) return;
@@ -35552,7 +35573,7 @@ var Tp,
       O(),
       g(),
       Cp(),
-      (Tp = `/assets/images/jkabfjkbaskfhasdbfasdhfasdfads.gif`),
+      (Tp = `/assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c_20261101045642.mp4`),
       (Ep = _p),
       (wp.defaultProps = {
         srcUrl: Tp,
@@ -41141,9 +41162,11 @@ e(() => {
                                     loop: !0,
                                     progress: 0,
                                     speed: 1,
-                                    srcFile: `/assets/images/jkabfjkbaskfhasdbfasdhfasdfads.gif`,
+                                    srcFile: `/assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c_20261101045642.mp4`,
                                     srcType: `url`,
-                                    srcUrl: `/assets/images/jkabfjkbaskfhasdbfasdhfasdfads.gif`,
+                                    srcUrl: `/assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c_20261101045642.mp4`,
+                                    video: !0,
+                                    posterUrl: ``,
                                     style: { height: `100%`, width: `100%` },
                                     width: `100%`,
                                   }),
