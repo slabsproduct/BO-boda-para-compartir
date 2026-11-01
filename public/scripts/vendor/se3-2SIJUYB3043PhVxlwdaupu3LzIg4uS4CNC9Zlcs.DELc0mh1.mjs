@@ -35445,6 +35445,113 @@ var Sp,
         `framer-dot-lottie-controls`
       )));
   });
+// FIX local: reproductor <video>+<canvas> para videos CON ALPHA (WebM VP9/AV1).
+// Safari/iOS no compone el canal alfa de <video> en DOM (fondo negro), por eso se
+// dibuja cada frame en un canvas 2D. createImageBitmap con colorSpaceConversion
+// "none" preserva premultiplied alpha en WebKit; si no hay soporte, fallback a
+// <video> clasico (muted + playsInline para autoplay en iOS).
+var Ap = f((Ap) => {
+  let { src: e, loop: t = !0, autoplay: n = !0 } = Ap,
+    [r, i] = l(!1),
+    o = R(null),
+    s = R(null);
+  (_(() => {
+    let a = o.current,
+      c = s.current;
+    if (!a || !c) return;
+    let d = a.getContext(`2d`);
+    // Safari/iOS no decodifica WebM/VP9: si no hay soporte de codec, fallback a <video>.
+    let okCodec = !1;
+    try {
+      okCodec = !!(c.canPlayType && c.canPlayType(`video/webm; codecs="vp9"`));
+    } catch (e) {}
+    if (!d || typeof createImageBitmap != `function` || !okCodec) {
+      i(!0);
+      return;
+    }
+    let u = !0,
+      h = null,
+      v = () => {
+        if (!u) return;
+        let e = requestAnimationFrame(v);
+        h = e;
+      },
+      g = () => {
+        u &&
+          (typeof a.requestVideoFrameCallback == `function`
+            ? a.requestVideoFrameCallback(m)
+            : (h = requestAnimationFrame(m)));
+      },
+      m = async () => {
+        if (!u) return;
+        try {
+          if (a.readyState >= 2 && a.videoWidth > 0) {
+            let e = await createImageBitmap(a, { colorSpaceConversion: `none` });
+            (a.width !== e.width || a.height !== e.height) &&
+              ((a.width = e.width), (a.height = e.height)),
+              d.clearRect(0, 0, a.width, a.height),
+              d.drawImage(e, 0, 0),
+              e.close && e.close();
+          }
+        } catch (e) {}
+        g();
+      };
+    a.preload = `auto`,
+      a.muted = !0,
+      a.playsInline = !0,
+      a.loop = !!t,
+      (a.src = e),
+      a.addEventListener(`canplay`, () => {
+        n && a.play().catch(() => {}), g();
+      }),
+      a.addEventListener(`ended`, () => {
+        t || cancelAnimationFrame(h);
+      });
+    let y = () => a.play().catch(() => {});
+    return (
+      document.addEventListener(`visibilitychange`, y),
+      () => {
+        (u = !1),
+          cancelAnimationFrame(h),
+          document.removeEventListener(`visibilitychange`, y),
+          a.pause(),
+          a.removeAttribute(`src`),
+          a.load();
+      }
+    );
+  }), [e, t, n]);
+  let a = { width: `100%`, height: `100%`, objectFit: `contain`, display: `block` };
+  return r
+    ? p(`video`, {
+        ref: o,
+        src: e,
+        autoPlay: n,
+        loop: t,
+        muted: !0,
+        playsInline: !0,
+        preload: `auto`,
+        disablePictureInPicture: !0,
+        controlsList: `nodownload`,
+        style: { ...a, background: `transparent` },
+      })
+    : f(`div`, {
+        style: { position: `relative`, width: `100%`, height: `100%`, display: `flex` },
+        children: [
+          p(`canvas`, { ref: o, style: { ...a, position: `absolute`, inset: 0 } }),
+          p(`video`, {
+            ref: s,
+            src: e,
+            muted: !0,
+            playsInline: !0,
+            loop: t,
+            preload: `auto`,
+            ariaHidden: !0,
+            tabIndex: -1,
+            style: { ...a, position: `absolute`, inset: 0, opacity: 0, pointerEvents: `none` },
+          }),
+        ],
+      });
+});
 function wp(e) {
   let t = z.current() === z.canvas,
     [n, r] = l(null),
@@ -35477,21 +35584,17 @@ function wp(e) {
   // se reemplaza por un <video>. En iOS/Safari la reproduccion automatica solo esta
   // permitida si el video esta muted (y ademas playsinline para no abrir el player
   // nativo a pantalla completa); se anade preload=auto y loop para replicar el GIF.
+  // El recurso tiene ALPHA (WebM VP9 con canal alfa): Safari/iOS NO decodifica alpha
+  // en <video>, por lo que se renderiza frame a frame sobre un <canvas> 2D usando
+  // createImageBitmap({colorSpaceConversion:"none"}) para preservar la transparencia
+  // (evita la composicion sobre negro). Fallback a <video> si falta soporte de canvas.
   if (typeof a === `string` && /\.(mp4|webm|m4v|mov)([?#].*)?$/i.test(a))
     return f(`div`, {
       style: { ...e.style, position: `relative`, width: `100%`, height: `100%`, display: `flex` },
-      children: p(`video`, {
+      children: p(Ap, {
         src: a,
-        autoPlay: !0,
         loop: e.loop !== !1,
-        muted: !0,
-        playsInline: !0,
-        preload: `auto`,
-        disablePictureInPicture: !0,
-        controlsList: `nodownload`,
-        "webkit-playsinline": ``,
-        "x5-video-player-type": `h5`,
-        style: { width: `100%`, height: `100%`, objectFit: `contain`, display: `block`, background: `transparent` },
+        autoplay: e.autoplay !== !1,
       }),
     });
   let [o, s] = l(!1);
@@ -35573,12 +35676,14 @@ var Tp,
       O(),
       g(),
       Cp(),
-      (Tp = `/assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c_20261101045642.mp4`),
+      (Tp = `/assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c_20261101062134.webm`),
       (Ep = _p),
       (wp.defaultProps = {
         srcUrl: Tp,
         autoplay: !0,
-        background: `#05F`,
+        // FIX local: default del Dot Lottie tenia fondo solido #05F; con recursos
+        // con alpha debe ser transparente para no tapar el fondo de la seccion.
+        background: `rgba(0, 0, 0, 0)`,
         controls: !1,
         direction: 1,
         hover: !1,
@@ -41162,9 +41267,9 @@ e(() => {
                                     loop: !0,
                                     progress: 0,
                                     speed: 1,
-                                    srcFile: `/assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c_20261101045642.mp4`,
+                                    srcFile: `/assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c_20261101062134.webm`,
                                     srcType: `url`,
-                                    srcUrl: `/assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c_20261101045642.mp4`,
+                                    srcUrl: `/assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c_20261101062134.webm`,
                                     video: !0,
                                     posterUrl: ``,
                                     style: { height: `100%`, width: `100%` },
