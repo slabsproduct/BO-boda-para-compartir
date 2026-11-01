@@ -67,50 +67,6 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
         });
       }
 
-      const timelineContainer = childDocument.querySelector<HTMLElement>(
-        ".framer-12bn1p2-container"
-      );
-      const ensureTimelineVideo = () => {
-        if (!timelineContainer) return;
-        let timelineVideo = timelineContainer.querySelector<HTMLVideoElement>("video");
-        if (!timelineVideo) {
-          timelineVideo = childDocument.createElement("video");
-          timelineVideo.src = assetUrl(
-            "/assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c_20261101062134.webm"
-          );
-          timelineVideo.setAttribute("aria-label", "Animación del cronograma");
-          timelineVideo.style.cssText =
-            "width:100%;height:100%;object-fit:contain;display:block;background:transparent";
-          timelineContainer.appendChild(timelineVideo);
-          console.warn("[home] Se restauró el video del cronograma que faltaba en el iframe.");
-        }
-        timelineVideo.autoplay = true;
-        timelineVideo.muted = true;
-        timelineVideo.loop = true;
-        timelineVideo.playsInline = true;
-        timelineVideo.preload = "auto";
-        timelineVideo.style.opacity = "1";
-        timelineVideo.style.visibility = "visible";
-        if (timelineVideo.dataset.homePlaybackStarted === "true") return;
-        timelineVideo.dataset.homePlaybackStarted = "true";
-        void timelineVideo.play().catch((error: unknown) => {
-          console.warn("[home] No se pudo iniciar el video del cronograma.", {
-            error,
-            src: timelineVideo.currentSrc || timelineVideo.src,
-            sourceAttribute: timelineVideo.getAttribute("src"),
-            readyState: timelineVideo.readyState,
-            networkState: timelineVideo.networkState,
-            mediaError: timelineVideo.error?.message,
-            webmSupport: timelineVideo.canPlayType('video/webm; codecs="vp8"'),
-          });
-        });
-      };
-      ensureTimelineVideo();
-      const timelineVideoObserver = new childWindow.MutationObserver(ensureTimelineVideo);
-      if (timelineContainer) {
-        timelineVideoObserver.observe(timelineContainer, { childList: true });
-      }
-
       cleanupFrame?.();
 
       childDocument.documentElement.lang = "es";
@@ -414,7 +370,6 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       cleanupFrame = () => {
         window.clearInterval(countdownTimer);
         flipCardMutationObserver.disconnect();
-        timelineVideoObserver.disconnect();
         flipCardTimers.forEach((timer) => window.clearTimeout(timer));
         flipHintRemovalTimers.forEach((timer) => window.clearTimeout(timer));
         childWindow.removeEventListener("scroll", updateFlipCardHints);

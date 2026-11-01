@@ -28567,7 +28567,7 @@ var Kf,
         }
       }),
       $(tp, `_ModulePromise`, null),
-      $(tp, `_wasmURL`, `https://cdn.jsdelivr.net/npm/${$f}@${Qf}/dist/dotlottie-player.wasm`),
+      $(tp, `_wasmURL`, `assets/misc/dotlottie-player.wasm`),
       (np = class {
         constructor() {
           $(this, `_eventListeners`, new Map());
@@ -41282,9 +41282,9 @@ e(() => {
                                     loop: !0,
                                     progress: 0,
                                     speed: 1,
-                                    srcFile: `/assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c_20261101062134.webm`,
-                                    srcType: `url`,
-                                    srcUrl: `/assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c_20261101062134.webm`,
+                                    srcFile: `assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c.lottie`,
+                                    srcType: `file`,
+                                    srcUrl: `assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c.lottie`,
                                     video: !0,
                                     posterUrl: ``,
                                     style: { height: `100%`, width: `100%` },
