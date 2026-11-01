@@ -35454,6 +35454,10 @@ var Sp,
 // mostrado como <video> directo (sin canvas => sin rectangulo negro).
 // Se usa un componente plano (sin forwardRef) porque forwardRef con funcion de
 // render devolvia undefined como tipo y rompia el render ('key' of undefined).
+// FIX local: variable propia (antes reutilizaba `Mp`, que colisionaba con una
+// funcion vendor declarada mas abajo en el scope -> ReferenceError TDZ y el
+// bundle completo moria => la web cargaba pero el video NO).
+var AlphaMp4Fallback = !1;
 var Ap = (e) => {
   let { src: v, loop: t = !0, autoplay: n = !0 } = e,
     [r, i] = l(!1),
@@ -35481,7 +35485,7 @@ var Ap = (e) => {
     // iOS/Safari antiguo no decodifica WebM: usar MP4 H.264 (opaco) como respaldo.
     if (isWebm && !okCodec) {
       i(!0);
-      Mp = !0;
+      AlphaMp4Fallback = !0;
       return;
     }
     // solo tiene sentido el pipeline de canvas para WebM con alpha; los MP4 se
@@ -35520,7 +35524,7 @@ var Ap = (e) => {
       (c.muted = !0),
       (c.playsInline = !0),
       (c.loop = !!t),
-      (c.src = Mp ? `assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4` : v),
+      (c.src = AlphaMp4Fallback ? `assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4` : v),
       c.addEventListener(`canplay`, () => {
         n && c.play().catch(() => {}), g();
       }),
@@ -35546,7 +35550,7 @@ var Ap = (e) => {
         style: { position: `relative`, width: `100%`, height: `100%`, display: `flex` },
         children: p(`video`, {
         ref: o,
-        src: Mp ? `assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4` : v,
+        src: AlphaMp4Fallback ? `assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4` : v,
         "data-webm-src": v,
         "data-mp4-src": `assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4`,
         autoPlay: n,
