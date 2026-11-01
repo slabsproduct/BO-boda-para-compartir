@@ -592,6 +592,117 @@ html.lenis { height: auto; }
   }
 </style>
 </head>
+<script>
+/* Fix botones "Ver inspiración" y "Ver ubicación": los enlaces rotos de la
+   exportación de Framer (atributo href mal formado) abrían el link dentro del
+   iframe y mostraban errores locales ("Cannot GET /..." o 404 de api.php).
+   Este script intercepta los clicks y abre SIEMPRE en una pestaña nueva. */
+(function () {
+  var FORM_URL = "https://bodamariysimon.online/form";
+  function isRsvpText(el) {
+    var t = el && el.textContent ? el.textContent.toLowerCase() : "";
+    return t.indexOf("confirmar asistencia") !== -1 || t.indexOf("confirma tu asistencia") !== -1;
+  }
+  // El botón "Confirmar asistencia" del header viene hardcodeado en la
+  // exportación de Framer (HTML y scripts vendor) apuntando a la web externa
+  // bodamariysimon.online/form. Lo reorientamos a la vista RSVP local (#rsvp).
+  // La app React (Home.tsx) intercepta ese click y cambia de vista sin recargar;
+  // el href queda como fallback si la app no llegara a cargar.
+  function fixRsvpButtons(root) {
+    var nodes;
+    try { nodes = root.querySelectorAll("a"); } catch (e) { return; }
+    for (var i = 0; i < nodes.length; i++) {
+      var a = nodes[i];
+      if (a.getAttribute("data-rsvp-fixed")) continue;
+      var h = a.getAttribute("href") || "";
+      if (h.indexOf(FORM_URL) !== -1 || (h.charAt(0) === "#" && !isRsvpText(a))) {
+        // hrefs "#..." huérfanos de la exportación: apuntan a rutas inexistentes
+        if (isRsvpText(a)) a.setAttribute("href", "#rsvp");
+        else a.removeAttribute("href");
+      } else if (isRsvpText(a) && !/^https?:/i.test(h)) {
+        a.setAttribute("href", "#rsvp");
+      }
+      a.setAttribute("data-rsvp-fixed", "1");
+    }
+  }
+  function fixBrokenAnchors(root) {
+    var nodes;
+    try { nodes = root.querySelectorAll("a[href]"); } catch (e) { return; }
+    for (var i = 0; i < nodes.length; i++) {
+      var a = nodes[i];
+      if (a.getAttribute("data-link-fixed")) continue;
+      var h = a.getAttribute("href") || "";
+      // Atributo href roto por la exportación: empieza con ' data-highlight='
+      if (h.indexOf(" data-highlight=") === 0) {
+        var m = h.match(/href="([^"]+)"/);
+        if (m) {
+          a.setAttribute("href", m[1]);
+          a.setAttribute("target", "_blank");
+          a.setAttribute("rel", "noopener noreferrer");
+          h = m[1];
+        }
+      }
+      if (/^https?:\/\//i.test(h)) {
+        if (h.indexOf(FORM_URL) === 0 && isRsvpText(a)) {
+          // "Confirmar asistencia" -> vista RSVP LOCAL (?view=rsvp), nunca la
+          // web externa ni una ruta inexistente del servidor.
+          a.setAttribute("href", window.location.pathname + "?view=rsvp");
+        } else {
+          a.setAttribute("target", "_blank");
+          a.setAttribute("rel", "noopener noreferrer");
+        }
+      }
+      a.setAttribute("data-link-fixed", "1");
+    }
+    fixRsvpButtons(root);
+  }
+  function currentRoot() {
+    return document.documentElement || document;
+  }
+  fixBrokenAnchors(currentRoot());
+  new MutationObserver(function (muts) {
+    for (var j = 0; j < muts.length; j++) {
+      var added = muts[j].addedNodes;
+      for (var k = 0; k < added.length; k++) {
+        var n = added[k];
+        if (n.nodeType === 1) fixBrokenAnchors(n);
+      }
+    }
+  }).observe(document.documentElement, { childList: true, subtree: true });
+  document.addEventListener("click", function (ev) {
+    var t = ev.target;
+    while (t && t.nodeType === 1 && t.tagName !== "A") t = t.parentNode;
+    if (!t || t.tagName !== "A") return;
+    var href = t.getAttribute("href") || "";
+    if (/^https?:\/\//i.test(href)) {
+      // El CTA "Confirmar asistencia" debe abrir la vista RSVP LOCAL, nunca la
+      // web externa. Aunque fixBrokenAnchors ya reemplaza el href, Framer puede
+      // re-hidratar el nodo con su valor original antes del click: lo volvemos
+      // a comprobar aquí y navegamos al ancla local (#rsvp), que la app React
+      // intercepta para cambiar de vista sin recargar.
+      if (href.indexOf(FORM_URL) === 0 && isRsvpText(t)) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        try { window.location.hash = "rsvp"; } catch (e) {}
+        return;
+      }
+      ev.preventDefault();
+      ev.stopPropagation();
+      window.open(href, "_blank", "noopener,noreferrer");
+    } else if (href.charAt(0) === "#" && !isRsvpText(t) && href !== "#rsvp") {
+      // Anclas huérfanas de la exportación ("#1173457374", etc.): si el elemento
+      // no es un enlace RSVP real, no dejamos que el navegador navegue dentro
+      // del iframe a una ruta inexistente (error "Cannot GET ...").
+      var id = href.slice(1);
+      if (id && !document.getElementById(id)) {
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+    }
+  }, true);
+})();
+</script>
+
 <body>
 	
 	<!-- Start of bodyStart -->

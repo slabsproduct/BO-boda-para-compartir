@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { Invitation, Guest } from "../types";
 import { BrandLogo } from "../components/Brand/BrandLogo";
+import { apiUrl, apiUrlPair, fetchJsonWithFallback } from "../lib/base";
 
 interface AdminProps {
   onBackToRSVP: () => void;
@@ -116,19 +117,37 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const invRes = await fetch("/api/admin/rsvps");
-      const invData = await invRes.json();
-      setInvitations(invData);
+      // En DonWeb estas peticiones terminan en api.php; en dev local van a las
+      // rutas /api/* de server.ts (ambas leen los mismos datos precargados).
+      // apiUrlPair() nos da ambas URLs: si la primaria falla (red, 4xx/5xx o
+      // HTML en vez de JSON) reintentamos contra la alternativa antes de
+      // mostrar errores al usuario.
+      const readJsonSafe = async (route: string): Promise<any> => {
+        const pair = apiUrlPair(route);
+        return fetchJsonWithFallback(pair.primary, pair.fallback);
+      };
 
-      const emailRes = await fetch("/api/admin/emails");
-      const emailData = await emailRes.json();
-      setEmails(emailData);
+      const [invData, emailData] = await Promise.all([
+        readJsonSafe("admin/rsvps"),
+        readJsonSafe("admin/emails"),
+      ]);
 
-      const statusRes = await fetch("/api/admin/db/status").then(r => r.json()).catch(() => null);
+      // Compatibilidad: server.ts devuelve un array plano; api.php también,
+      // pero si alguna versión devuelve {"invitations": [...]} lo normalizamos.
+      setInvitations(Array.isArray(invData) ? invData : (invData?.invitations ?? []));
+      setEmails(Array.isArray(emailData) ? emailData : (emailData?.emails ?? []));
+
+      let statusRes: any = null;
+      try {
+        statusRes = await readJsonSafe("admin/db/status");
+      } catch {
+        statusRes = null; // informativo: no debe romper la pantalla de admin
+      }
       if (statusRes) setDbStatus(statusRes);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setErrorMessage("Error de conexión al obtener datos de administración.");
+      const detail = err && err.message ? ` (${err.message})` : "";
+      setErrorMessage("Error de conexión al obtener datos de administración." + detail);
     } finally {
       setLoading(false);
     }
@@ -157,7 +176,7 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
     setErrorMessage(null);
 
     try {
-      const response = await fetch("/api/admin/rsvps", {
+      const response = await fetch(apiUrl("admin/rsvps"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -203,7 +222,7 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
     if (!editingInvitation || !editFormData) return;
 
     try {
-      const response = await fetch(`/api/admin/rsvps/${editingInvitation.code}`, {
+      const response = await fetch(apiUrl(`admin/rsvps/${encodeURIComponent(editingInvitation.code)}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editFormData)
@@ -229,7 +248,7 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
     if (!confirm(`¿Estás seguro de que querés eliminar la invitación con el código ${code}?`)) return;
 
     try {
-      const response = await fetch(`/api/admin/rsvps/${code}`, {
+      const response = await fetch(apiUrl(`admin/rsvps/${encodeURIComponent(code)}`), {
         method: "DELETE"
       });
 
@@ -250,7 +269,7 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
     if (!confirm("¿Querés limpiar la bandeja de simulación de emails de la boda?")) return;
 
     try {
-      await fetch("/api/admin/emails", {
+      await fetch(apiUrl("admin/emails"), {
         method: "DELETE"
       });
       setEmails([]);
@@ -1062,7 +1081,7 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
               </h4>
               <div className="flex flex-wrap items-center gap-3">
                 <a
-                  href="/api/admin/db/download-backup"
+                  href={apiUrl("admin/db/download-backup")}
                   className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#363B1F] text-[#FAF6F2] rounded-xl text-xs font-mono font-bold uppercase tracking-wider hover:bg-[#272B15] transition-colors shadow-xs"
                 >
                   <Download className="w-4 h-4" />

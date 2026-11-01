@@ -274,7 +274,14 @@ try {
   // ===== /api/admin/rsvps ====================================================
   if ($path === '/admin/rsvps') {
     if ($method === 'GET') {
-      json_response(read_invitations());
+      // Aceptamos tanto el objeto completo {"invitations":[...]} como el array
+      // plano [...] que devuelve server.ts en desarrollo, para que el Admin
+      // funcione igual en ambos backends.
+      $inv = read_invitations();
+      if (isset($_GET['format']) && $_GET['format'] === 'object') {
+        json_response(array('invitations' => $inv));
+      }
+      json_response($inv);
     }
     if ($method === 'POST') {
       $code = isset($body['code']) ? strtoupper(trim(strval($body['code']))) : '';

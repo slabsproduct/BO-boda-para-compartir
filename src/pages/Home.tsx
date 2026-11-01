@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { assetUrl, framerHomeUrl, rsvpViewUrl, rewriteLocalAssetUrl } from "../lib/base";
 
 interface HomeProps {
   onRsvpClick: () => void;
@@ -176,9 +177,35 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
         );
         const text = target?.closest("a, button, [role='button']")?.textContent?.toLowerCase() || "";
 
-        if (trigger || text.includes("confirmar asistencia") || text.includes("confirma tu asistencia") || text.includes("avisar en confirmación")) {
+        const isRsvpCta =
+          trigger !== null ||
+          text.includes("confirmar asistencia") ||
+          text.includes("confirma tu asistencia") ||
+          text.includes("avisar en confirmación");
+
+        // Links externos de la exportación de Framer (Google Maps, Waze,
+        // Instagram, Pinterest...) que NO son el CTA de RSVP: abrirlos siempre
+        // en una pestaña nueva en lugar de navegar dentro del iframe (allí
+        // provocaban errores locales tipo "Cannot GET /...").
+        const anchor = target?.closest?.("a[href]");
+        const anchorHref = anchor?.getAttribute("href") || "";
+        if (!isRsvpCta && /^https?:\/\//i.test(anchorHref)) {
           event.preventDefault();
           event.stopImmediatePropagation();
+          window.open(anchorHref, "_blank", "noopener,noreferrer");
+          return;
+        }
+
+        if (isRsvpCta) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          // El CTA de Framer apunta a la web externa bodamariysimon.online/form;
+          // lo reorientamos SIEMPRE a la vista RSVP local (?view=rsvp). Así, si
+          // el click llega antes de que la app haya enganchado el listener del
+          // iframe (o si Framer re-hidrata el nodo), el navegador navega a la
+          // propia app —que arranca en la vista RSVP— y no a un link ajeno ni a
+          // una ruta inexistente del servidor local.
+          try { window.location.href = rsvpViewUrl(); } catch { /* noop */ }
           onRsvpClickRef.current();
         }
       };
@@ -207,12 +234,12 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       const applyWeddingGifs = () => {
         replaceWithGif(
           ".framer-a4ob5c-container",
-          "/assets/images/Couple_dancing_in_red_ink_20261024202145_alpha (1).gif?v=20261027-3",
+          assetUrl("/assets/images/Couple_dancing_in_red_ink_20261024202145_alpha (1).gif") + "?v=20261027-3",
           true
         );
         replaceWithGif(
           ".framer-11aifpr",
-          "/assets/images/Characters_walking_with_dog_20261024202041_alpha.gif?v=20261027-3"
+          assetUrl("/assets/images/Characters_walking_with_dog_20261024202041_alpha.gif") + "?v=20261027-3"
         );
       };
       const weddingGifObserver = new MutationObserver(applyWeddingGifs);
@@ -356,12 +383,12 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       >
         <div className="home-preloader-emblem" aria-hidden="true">
           <span className="home-preloader-ring" />
-          <img src="/favicon.svg" alt="" />
+          <img src={assetUrl("/favicon.svg")} alt="" />
         </div>
       </div>
       <iframe
         ref={frameRef}
-        src="/framer-home.html?revision=20261027-mobile-card-hint-scroll-check"
+        src={framerHomeUrl()}
         title="Boda de Mari y Simón"
         className="fixed inset-x-0 top-0 z-40 block w-full border-0"
         style={{ height: "100vh" }}

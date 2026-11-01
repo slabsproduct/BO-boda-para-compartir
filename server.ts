@@ -1,8 +1,13 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
-import { createServer as createViteServer } from "vite";
+import { spawn, spawnSync, type ChildProcess } from "child_process";
+import net from "net";
+import { createServer as createViteServer, type ViteDevServer } from "vite";
 import type { Invitation, Guest, SimulatedEmail } from "./src/types";
+
+let shuttingDown = false;
+let phpChild: ChildProcess | null = null;
 
 // DATA_DIR configurable via env (Docker/Cloud Run: /app/data); por defecto src/data en dev local
 const DATA_DIR = process.env.BODA_DATA_DIR ?? path.join(process.cwd(), "src", "data");
@@ -73,13 +78,78 @@ function writeEmail(email: SimulatedEmail) {
 async function startServer() {
   ensureDb();
 
-  const app = express();
   // AJUSTE 2: Puerto dinámico (Cloud Run usa 8080, local usa 5000)
+  const isProduction = process.env.NODE_ENV === "production";
   const PORT = Number(process.env.PORT ?? 5000);
 
-  app.use(express.json());
+  // --- Desarrollo local: usar SIEMPRE las rutas /api/* de Express, que leen
+  // los mismos datos precargados (src/data/db.json y src/data/emails.json).
+  // El backend PHP (api.php) solo corre en producción (DonWeb/cPanel). Antes
+  // intentábamos levantar un `php -S` embebido en dev, pero si el binario php
+  // no está instalado (o falla al arrancar) el admin crasheaba con errores
+  // tipo "HTTP 200 en /api.php/admin/emails". Ahora eso no ocurre nunca.
+  let phpAvailable = false;
+  let phpServerUrl: URL | null = null;
+  if (!isProduction && process.env.BODA_DEV_PHP === "1") {
+    // Modo opcional SOLO para quien quiera probar api.php localmente:
+    // exportá BODA_DEV_PHP=1 y tené PHP instalado. Si no, se usa Express.
+    try {
+      const probe = spawnSync("php", ["-v"], { encoding: "utf8" });
+      phpAvailable = probe.status === 0;
+    } catch {
+      phpAvailable = false;
+    }
 
-    app.get("/api/admin/rsvps", (req, res) => {
+    if (phpAvailable) {
+      // Puerto libre efímero para el servidor PHP embebido.
+      const port = await new Promise<number>((resolve, reject) => {
+        const srv = net.createServer();
+        srv.on("error", reject);
+        srv.listen(0, "127.0.0.1", () => {
+          const p = (srv.address() as net.AddressInfo).port;
+          srv.close(() => resolve(p));
+        });
+      });
+      const docRoot = process.cwd(); // api.php vive en la raíz del proyecto
+      phpChild = spawn("php", ["-S", `127.0.0.1:${port}`, "-t", docRoot], {
+        cwd: docRoot,
+        env: { ...process.env, BODA_DATA_DIR: DATA_DIR },
+        stdio: ["ignore", "ignore", "inherit"],
+      });
+      phpChild.on("exit", (code) => {
+        if (!shuttingDown) console.warn(`⚠️  Servidor PHP embebido terminó (code ${code}); el admin usará /api/* de Express.`);
+        phpAvailable = false;
+        phpChild = null;
+      });
+      phpServerUrl = new URL(`http://127.0.0.1:${port}`);
+      // Esperar a que PHP levante (máx. ~3s) con una sonda real.
+      const deadline = Date.now() + 3000;
+      let up = false;
+      while (Date.now() < deadline) {
+        try {
+          const r = await fetch(phpServerUrl.toString());
+          if (r.ok || r.status === 404) { up = true; break; }
+        } catch {
+          await new Promise((res) => setTimeout(res, 150));
+        }
+      }
+      if (!up) {
+        console.warn("⚠️  No se pudo iniciar el servidor PHP embebido; usando /api/* de Express.");
+        phpAvailable = false;
+        phpChild?.kill();
+        phpChild = null;
+      } else {
+        console.log(`🐘 Backend PHP embebido disponible en ${phpServerUrl.toString()} (api.php)`);
+      }
+    } else {
+      console.log("ℹ️  Dev local: el frontend usará las rutas /api/* de server.ts (mismos datos JSON precargados).");
+    }
+  }
+
+  const app = express();
+
+  app.use(express.json());
+  app.get("/api/admin/rsvps", (req, res) => {
     res.json(readInvitations());
   });
 
@@ -231,14 +301,52 @@ async function startServer() {
   app.use(express.static(path.join(process.cwd(), "public")));
 
   // AJUSTE 3: Lógica de producción vs desarrollo más robusta para Cloud Run
-  const isProduction = process.env.NODE_ENV === "production";
 
   if (!isProduction) {
     console.log("🛠️  Iniciando en modo DESARROLLO con Vite...");
     const vite = await createViteServer({
       server: { middlewareMode: true },
+      // 'spa': Vite sirve index.html en / y hace fallback de las rutas del
+      // cliente. Las rutas /api/* y el proxy /api.php se registraron ANTES en
+      // Express, así que nunca llegan a este fallback (no hay error 404/HTML).
       appType: "spa",
     });
+
+    // Proxy dev: cualquier request a /api.php[/...] se reenvía al servidor PHP
+    // embebido (si está disponible). Así el frontend usa exactamente la misma
+    // URL ('/api.php/admin/emails') en dev local que en DonWeb.
+    app.use("/api.php", async (req, res) => {
+      if (!phpServerUrl) {
+        return res.status(502).json({
+          error: "PHP no disponible en este sistema. El frontend debe usar /api/* de Express.",
+        });
+      }
+      try {
+        const target = new URL(phpServerUrl.toString());
+        target.pathname = "/api.php";
+        target.search = req.originalUrl.includes("?")
+          ? req.originalUrl.slice(req.originalUrl.indexOf("?"))
+          : "";
+        const init: RequestInit = { method: req.method };
+        if (["POST", "PUT", "DELETE"].includes(req.method)) {
+          init.headers = { "content-type": "application/json" };
+          init.body = JSON.stringify(req.body ?? {});
+        }
+        const upstream = await fetch(target, init);
+        res.status(upstream.status);
+        const ct = upstream.headers.get("content-type");
+        if (ct) res.set("content-type", ct);
+        res.send(Buffer.from(await upstream.arrayBuffer()));
+      } catch (err) {
+        res.status(502).json({ error: String(err) });
+      }
+    });
+
+    // Nota: en dev el frontend SIEMPRE usa /api/* de Express (base.ts detecta
+    // import.meta.env.DEV), así que no hace falta inyectar window.PHP_ENABLED
+    // ni ningún hack de middlewares aquí. El proxy /api.php de arriba queda
+    // disponible solo por si se levanta PHP manualmente con BODA_DEV_PHP=1.
+
     app.use(vite.middlewares);
   } else {
     console.log("🚀 Iniciando en modo PRODUCCIÓN sirviendo carpeta 'dist'...");
