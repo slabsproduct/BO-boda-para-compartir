@@ -35445,14 +35445,15 @@ var Sp,
         `framer-dot-lottie-controls`
       )));
   });
-// FIX local: reproductor <video>+<canvas> para videos CON ALPHA (WebM VP9/AV1).
-// Safari/iOS no compone el canal alfa de <video> en DOM (fondo negro), por eso se
-// dibuja cada frame en un canvas 2D. createImageBitmap con colorSpaceConversion
-// "none" preserva premultiplied alpha en WebKit; si no hay soporte, fallback a
-// <video> clasico (muted + playsInline para autoplay en iOS).
-// FIX local: se reemplaza forwardRef (f) por un componente comun (p/React.createElement
-// ya esta en el bundle). forwardRef con funcion de render devolvia undefined como tipo
-// y rompia el render ("Cannot read properties of undefined (reading 'key')").
+// FIX local: reproductor <video>+<canvas> para videos CON ALPHA (WebM VP8/VP9).
+// Safari/iOS (<16.4) NO decodifica WebM y ademas no compone el alpha de <video>
+// en DOM (fondo negro). Estrategia: si el navegador soporta WebM, se oculta el
+// <video> (opacity:0) y cada frame se pinta en un canvas 2D mediante
+// createImageBitmap({colorSpaceConversion:"none"}) que conserva el canal alfa en
+// WebKit. Si NO soporta WebM (iPhone viejo), se hace fallback al MP4 H.264 opaco
+// mostrado como <video> directo (sin canvas => sin rectangulo negro).
+// Se usa un componente plano (sin forwardRef) porque forwardRef con funcion de
+// render devolvia undefined como tipo y rompia el render ('key' of undefined).
 var Ap = (e) => {
   let { src: v, loop: t = !0, autoplay: n = !0 } = e,
     [r, i] = l(!1),
@@ -35461,13 +35462,34 @@ var Ap = (e) => {
   (_(() => {
     let a = o.current,
       c = s.current;
-    if (!a || !c) return;
+    // FIX local: con el estado de fallback activo `o` es el <video> y `s` es null;
+    // salir temprano evita escribir propiedades sobre null (TypeError post-hidratacion).
+    if (!a || !c || !c.canPlayType) return;
     let d = a.getContext(`2d`);
-    // Safari/iOS no decodifica WebM/VP9: si no hay soporte de codec, fallback a <video>.
+    // FIX local: el recurso es VP8 con alpha (no VP9). canPlayType("...codecs=vp9")
+    // devolvia "" incluso en Chrome/desktop -> el canvas nunca pintaba y el <video>
+    // quedaba opacity:0 => "no carga el video". Se pregunta por el codec real segun
+    // la extension y se acepta cualquier respuesta no vacia ("probably"/"maybe").
+    let ext = ((v.split(`?`)[0].split(`#`)[0].match(/\.(mp4|webm|m4v|mov)$/i) || [])[1] || ``).toLowerCase();
+    let isWebm = ext === `webm`;
+    let mime = isWebm ? `video/webm` : `video/mp4`;
+    let codecQ = isWebm ? `video/webm; codecs="vp8"` : `video/mp4; codecs="avc1.42E01E"`;
     let okCodec = !1;
     try {
-      okCodec = !!(c.canPlayType && c.canPlayType(`video/webm; codecs="vp9"`));
+      okCodec = !!(c.canPlayType && (c.canPlayType(codecQ) || c.canPlayType(mime)));
     } catch (e) {}
+    // iOS/Safari antiguo no decodifica WebM: usar MP4 H.264 (opaco) como respaldo.
+    if (isWebm && !okCodec) {
+      i(!0);
+      Mp = !0;
+      return;
+    }
+    // solo tiene sentido el pipeline de canvas para WebM con alpha; los MP4 se
+    // muestran directo como <video>.
+    if (!isWebm) {
+      i(!0);
+      return;
+    }
     if (!d || typeof createImageBitmap != `function` || !okCodec) {
       i(!0);
       return;
@@ -35498,7 +35520,7 @@ var Ap = (e) => {
       (c.muted = !0),
       (c.playsInline = !0),
       (c.loop = !!t),
-      (c.src = v),
+      (c.src = Mp ? `assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4` : v),
       c.addEventListener(`canplay`, () => {
         n && c.play().catch(() => {}), g();
       }),
@@ -35520,9 +35542,13 @@ var Ap = (e) => {
   }), [v, t, n]);
   let a = { width: `100%`, height: `100%`, objectFit: `contain`, display: `block` };
   return r
-    ? p(`video`, {
+    ? p(`div`, {
+        style: { position: `relative`, width: `100%`, height: `100%`, display: `flex` },
+        children: p(`video`, {
         ref: o,
-        src: v,
+        src: Mp ? `assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4` : v,
+        "data-webm-src": v,
+        "data-mp4-src": `assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4`,
         autoPlay: n,
         loop: t,
         muted: !0,
@@ -35531,6 +35557,7 @@ var Ap = (e) => {
         disablePictureInPicture: !0,
         controlsList: `nodownload`,
         style: { ...a, background: `transparent` },
+        }),
       })
     : f(`div`, {
         style: { position: `relative`, width: `100%`, height: `100%`, display: `flex` },
@@ -35593,6 +35620,7 @@ function wp(e) {
   // (evita la composicion sobre negro). Fallback a <video> si falta soporte de canvas.
   if (typeof a === `string` && /\.(mp4|webm|m4v|mov)([?#].*)?$/i.test(a))
     return f(`div`, {
+      "data-alpha-fallback-mp4": ``,
       style: { ...e.style, position: `relative`, width: `100%`, height: `100%`, display: `flex` },
       children: p(Ap, {
         src: a,
@@ -40487,7 +40515,7 @@ e(() => {
                                     objectFit: `cover`,
                                     playing: !0,
                                     posterEnabled: !0,
-                                    srcFile: `../../assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4`,
+                                    srcFile: `../..assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4`,
                                     srcType: `Upload`,
                                     srcUrl: `https://framerusercontent.com/assets/MLWPbW1dUQawJLhhun3dBwpgJak.mp4`,
                                     startTime: 0,
