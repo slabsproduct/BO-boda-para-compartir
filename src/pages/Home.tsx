@@ -18,7 +18,22 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
 
     const loadingStartedAt = Date.now();
     let preloadTimeout: number | undefined;
+    let fallbackTimeout: number | undefined;
     let cleanupFrame: (() => void) | undefined;
+
+    // El loader debe ocultarse solo cuando el iframe termino de CARGAR DE VERDAD
+    // (recursos + hidratacion de Framer), no por un cronometro fijo.
+    const hideLoaderAfterMinimum = () => {
+      if (preloadTimeout) return; // ya programado
+      const minimumLoadingTime = 1200;
+      const remainingLoadingTime = Math.max(0, minimumLoadingTime - (Date.now() - loadingStartedAt));
+      preloadTimeout = window.setTimeout(() => setIsLoading(false), remainingLoadingTime);
+    };
+
+    // Red de seguridad: si el evento "load" nunca llega (cache buster, error de red,
+    // iframe bloqueado), ocultar el loader a los 8s para no tapar el sitio para siempre.
+    fallbackTimeout = window.setTimeout(hideLoaderAfterMinimum, 8000);
+
     const handleLoad = () => {
       const childDocument = frame.contentDocument;
       const expectedPath = new URL(frame.src, window.location.href).pathname;
@@ -27,10 +42,6 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       if (!childWindow) return;
 
       cleanupFrame?.();
-
-      const minimumLoadingTime = 1800;
-      const remainingLoadingTime = Math.max(0, minimumLoadingTime - (Date.now() - loadingStartedAt));
-      preloadTimeout = window.setTimeout(() => setIsLoading(false), remainingLoadingTime);
 
       childDocument.documentElement.lang = "es";
       childDocument.querySelectorAll("#__framer-badge-container, #__framer-editorbar-container, #__framer-editorbar")
@@ -223,15 +234,33 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       });
       const weddingDate = new Date("2027-04-03T15:30:00-03:00");
       const updateCountdown = () => {
-        const totalSeconds = Math.floor((weddingDate.getTime() - Date.now()) / 1000);
-        if (totalSeconds <= 0) return;
+        const now = new Date();
+        if (weddingDate.getTime() <= now.getTime()) return;
+
+        // Descomposición calendario real: meses exactos + días/horas/min/seg restantes
+        let months = (weddingDate.getFullYear() - now.getFullYear()) * 12 + (weddingDate.getMonth() - now.getMonth());
+        const anchorFor = (monthOffset: number) => {
+          // Ancla en el mismo día de "now" dentro del mes objetivo, recortado al último día de ese mes
+          const targetMonthFirst = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+          const lastDayOfTarget = new Date(targetMonthFirst.getFullYear(), targetMonthFirst.getMonth() + 1, 0).getDate();
+          const day = Math.min(now.getDate(), lastDayOfTarget);
+          return new Date(targetMonthFirst.getFullYear(), targetMonthFirst.getMonth(), day, now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+        };
+        let anchor = anchorFor(months);
+        if (anchor.getTime() > weddingDate.getTime()) {
+          months -= 1;
+          anchor = anchorFor(months);
+        }
+        let days = 0;
+        while (anchor.getTime() + (days + 1) * 86400000 <= weddingDate.getTime()) days += 1;
+        const remainingMs = weddingDate.getTime() - anchor.getTime() - days * 86400000;
 
         const values = {
-          months: Math.floor(totalSeconds / (3600 * 24 * 30)),
-          days: Math.floor((totalSeconds % (3600 * 24 * 30)) / (3600 * 24)),
-          hours: Math.floor((totalSeconds % (3600 * 24)) / 3600),
-          minutes: Math.floor((totalSeconds % 3600) / 60),
-          seconds: totalSeconds % 60,
+          months,
+          days,
+          hours: Math.floor(remainingMs / 3600000),
+          minutes: Math.floor((remainingMs % 3600000) / 60000),
+          seconds: Math.floor((remainingMs % 60000) / 1000),
         };
         Object.entries(values).forEach(([unit, value]) => {
           childDocument.querySelectorAll(`[data-cd="${unit}"]`).forEach((element) => {
@@ -272,6 +301,20 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       window.addEventListener("scroll", syncFrameScroll, { passive: true });
       resizeFrame();
 
+      // El iframe cargo, pero Framer aun esta hidratando (carga ~3.2MB de modulos .mjs).
+      // Esperar a que document.readyState sea "complete" DENTRO del iframe para ocultar
+      // el loader; si ya lo esta, hideLoaderAfterMinimum() se programa de una.
+      if (childDocument.readyState === "complete") {
+        hideLoaderAfterMinimum();
+      } else {
+        childDocument.addEventListener("readystatechange", function onReady() {
+          if (childDocument.readyState === "complete") {
+            childDocument.removeEventListener("readystatechange", onReady);
+            hideLoaderAfterMinimum();
+          }
+        });
+      }
+
       cleanupFrame = () => {
         window.clearInterval(countdownTimer);
         flipCardMutationObserver.disconnect();
@@ -298,6 +341,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
     return () => {
       frame.removeEventListener("load", handleLoad);
       window.clearTimeout(preloadTimeout);
+      window.clearTimeout(fallbackTimeout);
       cleanupFrame?.();
     };
   }, []);

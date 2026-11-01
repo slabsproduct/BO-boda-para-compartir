@@ -35461,6 +35461,18 @@ function wp(e) {
       a = Tp;
       break;
   }
+  // FIX local: el dotlottie-web solo soporta .lottie/.json y no puede renderizar GIFs.
+  // Si la fuente es una imagen (gif/png/jpg/webp), mostrarla como <img> en lugar del canvas Lottie.
+  if (typeof a === `string` && /\.(gif|png|jpe?g|webp|apng|avif)([?#].*)?$/i.test(a))
+    return f(`div`, {
+      style: { ...e.style, position: `relative`, width: `100%`, height: `100%`, display: `flex` },
+      children: p(`img`, {
+        src: a,
+        alt: ``,
+        decoding: `async`,
+        style: { width: `100%`, height: `100%`, objectFit: `contain`, display: `block` },
+      }),
+    });
   let [o, s] = l(!1);
   (_(() => {
     if ((s(!1), !n)) return;
@@ -35540,7 +35552,7 @@ var Tp,
       O(),
       g(),
       Cp(),
-      (Tp = `https://lottie.host/d826e0a7-b7e8-4072-8afe-c943ed2dd2ca/DpX3m5yT5Z.lottie`),
+      (Tp = `/assets/images/jkabfjkbaskfhasdbfasdhfasdfads.gif`),
       (Ep = _p),
       (wp.defaultProps = {
         srcUrl: Tp,
@@ -37337,10 +37349,11 @@ var Jm,
                 value: eh,
                 ...qm({ Lu1kErJjM: { value: th }, QsmvS_bXR: { value: nh } }, x, O),
                 children: p(ne, {
-                  href: _,
+                  href: _,,
+                  target: "_blank", rel: "noopener noreferrer",
                   motionChild: !0,
                   nodeId: `H9A8LHd6o`,
-                  openInNewTab: !1,
+                  openInNewTab: !0,
                   scopeId: `JsdxK7PjC`,
                   smoothScroll: !0,
                   children: f(C.a, {
@@ -38173,6 +38186,7 @@ var Jm,
                         rendersWithMotion: !0,
                         scopeId: `N5hMAFvBt`,
                         children: p(_e, {
+                          openInNewTab: !0,
                           azjbYCood: `999px`,
                           gHeOvXgAq: `https://ul.waze.com/ul?place=ChIJQyLxaHPpfZYRXVizldWYXXI&ll=-33.00214760%2C-69.17521280&navigate=yes&utm_campaign=live_map&utm_source=waze_website&utm_medium=lm_share_location`,
                           Goeh0UlpU: `Car`,
@@ -38199,6 +38213,7 @@ var Jm,
                         rendersWithMotion: !0,
                         scopeId: `N5hMAFvBt`,
                         children: p(_e, {
+                          openInNewTab: !0,
                           azjbYCood: `999px`,
                           gHeOvXgAq: `https://maps.app.goo.gl/5DypKSeZSw9CjCMF9`,
                           Goeh0UlpU: `Recurso 5.svg`,
@@ -40881,6 +40896,7 @@ e(() => {
                                         V4zLOktIr: { variant: Fg(`rR8gbhtfg`) },
                                       },
                                       children: p(_e, {
+                                        openInNewTab: !0,
                                         azjbYCood: `999px`,
                                         height: `100%`,
                                         hyoIEBZCr: `Confirma tu asistencia`,
@@ -41126,9 +41142,9 @@ e(() => {
                                     loop: !0,
                                     progress: 0,
                                     speed: 1,
-                                    srcFile: `../../assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c.lottie`,
-                                    srcType: `file`,
-                                    srcUrl: `https://lottie.host/d826e0a7-b7e8-4072-8afe-c943ed2dd2ca/DpX3m5yT5Z.lottie`,
+                                    srcFile: `/assets/images/jkabfjkbaskfhasdbfasdhfasdfads.gif`,
+                                    srcType: `url`,
+                                    srcUrl: `/assets/images/jkabfjkbaskfhasdbfasdhfasdfads.gif`,
                                     style: { height: `100%`, width: `100%` },
                                     width: `100%`,
                                   }),
@@ -41366,8 +41382,9 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             nodeId: `aJrqUSGGD`,
                                             scopeId: `cUeqT91wH`,
                                             children: p(_e, {
+                                              openInNewTab: !0,
                                               azjbYCood: `999px`,
-                                              gHeOvXgAq: `https://www.pinterest.com/MariAngel9/inspo-dresscode/`,
+                                              gHeOvXgAq: `https://ar.pinterest.com/MariAngel9/inspo-dresscode/`,
                                               height: `100%`,
                                               hyoIEBZCr: `Ver inspiración`,
                                               id: `aJrqUSGGD`,
@@ -41387,7 +41404,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                     nodeId: `xQ3AhTPFC`,
                                     scopeId: `cUeqT91wH`,
                                     children: p(lg, {
-                                      backNote: `Queremos que disfruten de este día al máximo y sin preocupaciones. Como la conectividad en la zona es limitada, pondremos a disposición un servicio de bus para que puedan llegar y regresar cómodamente, sin tener que preocuparse por manejar. <b>El servicio tendrá un costo de $X por persona</b>.
+                                      backNote: `Queremos que disfruten de este día al máximo y sin preocupaciones. Por eso nos encargamos de su regreso: al terminar la fiesta, habrá un servicio de bus esperándolos para volver cómodamente, sin tener que pensar en manejar. <b>La ida es por su cuenta, el regreso lo ponemos nosotros, sin costo alguno</b>.
 
 ¡Así solo tienen que preocuparse por celebrar con nosotros!`,
                                       borderColor: `rgb(224, 224, 224)`,
@@ -41435,7 +41452,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                     nodeId: `rU5l2BUiS`,
                                     scopeId: `cUeqT91wH`,
                                     children: p(lg, {
-                                      backNote: `¡Queremos vivir este día a través de sus ojos! 💛 Creamos un álbum compartido para que puedan subir todas las fotos y videos que quieran, no solo de la boda, sino también de la travesía para llegar hasta acá. Sabemos que muchos harán un largo viaje para acompañarnos y nos encantaría guardar esos pequeños momentos, desde el comienzo de la aventura hasta el último baile.
+                                      backNote: `¡Queremos vivir este día a través de sus ojos! 💛 Saquen todas las fotos y videos que quieran, no solo de la boda, sino también de la travesía para llegar hasta acá. Sabemos que muchos harán un largo viaje para acompañarnos y nos encantaría guardar esos pequeños momentos, desde el comienzo de la aventura hasta el último baile. E igual, seguinos en IG para ver nuestra aventura al altar.
 
 ¡Cada recuerdo cuenta y queremos atesorarlos todos con ustedes!`,
                                       borderColor: `rgb(224, 224, 224)`,
@@ -41491,7 +41508,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                               "--framer-line-height": `1.3em`,
                                               "--framer-text-alignment": `center`,
                                             },
-                                            children: `Sumá las fotos que quieras desde el albúm compartido que creamos para compartir y no quedarnos fuera,`,
+                                            children: `Seguinos en IG y capturen todo desde su punto de vista, que después tendremos un álbum compartido para juntarlas todas.`,
                                           }),
                                         }),
                                         className: `framer-17v004q`,
@@ -41509,9 +41526,10 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             nodeId: `tEjKL9gsO`,
                                             scopeId: `cUeqT91wH`,
                                             children: p(_e, {
+                                              openInNewTab: !0,
                                               azjbYCood: `999px`,
                                               height: `100%`,
-                                              hyoIEBZCr: `Sumate al albúm`,
+                                              hyoIEBZCr: `Seguinos en IG`,
                                               id: `tEjKL9gsO`,
                                               layoutId: `tEjKL9gsO`,
                                               variant: Fg(`eMNwtJ8FZ`),
@@ -41567,6 +41585,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             nodeId: `pVG4F7t5M`,
                                             scopeId: `cUeqT91wH`,
                                             children: p(_e, {
+                                              openInNewTab: !0,
                                               azjbYCood: `999px`,
                                               gHeOvXgAq: `https://www.google.com/maps/place/Plaza+General+Espejo/@-32.986405,-68.8847115,17z/data=!3m1!4b1!4m6!3m5!1s0x967e0aed4ea9997b:0xa2114953ee10c4dd!8m2!3d-32.9864095!4d-68.8821366!16s%2Fg%2F11c67r0cxc?authuser=0&entry=ttu&g_ep=EgoyMDI2MTAxMy4wIKXMDSoASAFQAw%3D%3D`,
                                               height: `100%`,
@@ -41632,8 +41651,9 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             nodeId: `XCi007VvJ`,
                                             scopeId: `cUeqT91wH`,
                                             children: p(_e, {
+                                              openInNewTab: !0,
                                               azjbYCood: `999px`,
-                                              gHeOvXgAq: `https://www.pinterest.com/MariAngel9/inspo-dresscode/`,
+                                              gHeOvXgAq: `https://ar.pinterest.com/MariAngel9/inspo-dresscode/`,
                                               height: `100%`,
                                               hyoIEBZCr: `Ver inspiración`,
                                               id: `XCi007VvJ`,
@@ -41691,6 +41711,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             nodeId: `bHrt5hm8o`,
                                             scopeId: `cUeqT91wH`,
                                             children: p(_e, {
+                                              openInNewTab: !0,
                                               azjbYCood: `999px`,
                                               gHeOvXgAq: `https://www.google.com/maps/place/Plaza+General+Espejo/@-32.986405,-68.8847115,17z/data=!3m1!4b1!4m6!3m5!1s0x967e0aed4ea9997b:0xa2114953ee10c4dd!8m2!3d-32.9864095!4d-68.8821366!16s%2Fg%2F11c67r0cxc?authuser=0&entry=ttu&g_ep=EgoyMDI2MTAxMy4wIKXMDSoASAFQAw%3D%3D`,
                                               height: `100%`,
@@ -41719,7 +41740,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                               "--framer-line-height": `1.3em`,
                                               "--framer-text-alignment": `center`,
                                             },
-                                            children: `Sumá las fotos que quieras desde el albúm compartido que creamos para compartir y no quedarnos fuera,`,
+                                            children: `Seguinos en IG y capturen todo desde su punto de vista, que después tendremos un álbum compartido para juntarlas todas.`,
                                           }),
                                         }),
                                         className: `framer-1l54fr5`,
@@ -41738,9 +41759,10 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             nodeId: `I6j2nTgc9`,
                                             scopeId: `cUeqT91wH`,
                                             children: p(_e, {
+                                              openInNewTab: !0,
                                               azjbYCood: `999px`,
                                               height: `100%`,
-                                              hyoIEBZCr: `Sumate al albúm`,
+                                              hyoIEBZCr: `Seguinos en IG`,
                                               id: `I6j2nTgc9`,
                                               layoutId: `I6j2nTgc9`,
                                               variant: Fg(`eMNwtJ8FZ`),
@@ -42137,7 +42159,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                           NSoyBpum7: `¿Qué necesito para ingresar a Argentina si viajo desde el exterior?`,
                                           OCWqaoTN3: `¡Sí! Tendremos un servicio de comida increíble para compartir y una pista de baile para que todos se diviertan. Si tienes alguna restricción con alimentos, por favor, indícalo en el formulario de confirmación.`,
                                           qTYaUuARc: `¿La boda es en interior o al aire libre?`,
-                                          qUDrqxRA_: `¡Claro! Nos encantaría que compartas tus fotos en nuestro albúm compartido. Solo te pedimos que no uses flash, silencies tu teléfono y no obstruyas el paso de los fotógrafos profesionales.`,
+                                          qUDrqxRA_: `¡Claro! Nos encantaría ver el día desde tu punto de vista. Solo te pedimos que no uses flash, silencies tu teléfono y no obstruyas el paso de los fotógrafos profesionales.`,
                                           style: { width: `100%` },
                                           t2MHMdVRA: `Sí, únicamente la ceremonia se transmitirá por YouTube Live de 4:00 PM para quienes no nos puedan acompañar físicamente.`,
                                           t3O8tZ8FB: `¿Puedo llevar acompañante?`,

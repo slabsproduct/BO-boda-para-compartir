@@ -2,47 +2,11 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
-import {
-  initSqliteDatabase,
-  getInvitationsSqlite,
-  getInvitationByCodeSqlite,
-  saveInvitationSqlite,
-  deleteInvitationSqlite,
-  generateSqlDump
-} from "./src/db/sqlite";
+import type { Invitation, Guest, SimulatedEmail } from "./src/types";
 
-// ... (TODAS TUS INTERFACES Guest, Invitation, SimulatedEmail se quedan IGUAL) ...
-interface Guest {
-  name: string;
-  isAttending: boolean;
-  dietaryRestrictions: string;
-  notes?: string;
-  needsTransport?: boolean;
-  transportLocation?: string;
-}
-
-interface Invitation {
-  code: string;
-  names: string;
-  passes: number;
-  status: 'pending' | 'confirmed' | 'declined';
-  updatedAt?: string;
-  youtubeEmail?: string;
-  guests: Guest[];
-}
-
-interface SimulatedEmail {
-  id: string;
-  to: string;
-  subject: string;
-  body: string;
-  timestamp: string;
-}
-
-// AJUSTE 1: Rutas absolutas más seguras para contenedores Docker
-const DATA_DIR = path.join(process.cwd(), "src", "data");
+// DATA_DIR configurable via env (Docker/Cloud Run: /app/data); por defecto src/data en dev local
+const DATA_DIR = process.env.BODA_DATA_DIR ?? path.join(process.cwd(), "src", "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
-const SQLITE_FILE = path.join(DATA_DIR, "wedding.sqlite");
 const EMAILS_PATH = path.join(DATA_DIR, "emails.json");
 
 // Helper to ensure database files exist
@@ -74,7 +38,6 @@ function ensureDb() {
   }
 }
 
-// ... (TUS FUNCIONES readInvitations, writeInvitations, readEmails, writeEmail se quedan IGUAL) ...
 function readInvitations(): Invitation[] {
   ensureDb();
   try {
@@ -109,7 +72,6 @@ function writeEmail(email: SimulatedEmail) {
 
 async function startServer() {
   ensureDb();
-  await initSqliteDatabase().catch(err => console.error("SQLite init error:", err));
 
   const app = express();
   // AJUSTE 2: Puerto dinámico (Cloud Run usa 8080, local usa 5000)
@@ -117,22 +79,12 @@ async function startServer() {
 
   app.use(express.json());
 
-  // ... (TODAS TUS RUTAS /api/... se quedan EXACTAMENTE IGUAL, no las toques) ...
-  app.get("/api/admin/rsvps", async (req, res) => {
-    try {
-      const sqliteInvs = await getInvitationsSqlite();
-      if (sqliteInvs && sqliteInvs.length > 0) return res.json(sqliteInvs);
-    } catch (e) { console.warn("Falling back to json db", e); }
+    app.get("/api/admin/rsvps", (req, res) => {
     res.json(readInvitations());
   });
 
-  app.get("/api/rsvp/:code", async (req, res) => {
+  app.get("/api/rsvp/:code", (req, res) => {
     const code = req.params.code.trim().toUpperCase();
-    try {
-      const sqliteInv = await getInvitationByCodeSqlite(code);
-      if (sqliteInv) return res.json({ success: true, invitation: sqliteInv });
-    } catch (e) { console.warn("SQLite query fallback", e); }
-
     const invitation = readInvitations().find(i => i.code.toUpperCase() === code);
     if (invitation) {
       res.json({ success: true, invitation });
@@ -149,20 +101,13 @@ async function startServer() {
       return res.status(400).json({ success: false, error: "Datos de invitados inválidos." });
     }
 
-    let invitation: Invitation | null = null;
-    try { invitation = await getInvitationByCodeSqlite(code); } catch (e) { console.warn("SQLite get error", e); }
-
-    if (!invitation) {
-      invitation = readInvitations().find(i => i.code.toUpperCase() === code) || null;
-    }
+    const invitation = readInvitations().find(i => i.code.toUpperCase() === code) || null;
 
     if (invitation) {
       invitation.guests = guests;
       invitation.status = status;
       invitation.youtubeEmail = typeof youtubeEmail === "string" && youtubeEmail.trim() ? youtubeEmail.trim() : invitation.youtubeEmail;
       invitation.updatedAt = new Date().toISOString();
-
-      await saveInvitationSqlite(invitation).catch(err => console.error("SQLite save error", err));
 
       const invitations = readInvitations();
       const index = invitations.findIndex(i => i.code.toUpperCase() === code);
@@ -174,8 +119,8 @@ async function startServer() {
       const emailBody = `¡Hola ${invitation.names}!\n\nHemos recibido tu confirmación...\n\nCon cariño,\nMari & Simón 💍`;
 
       writeEmail({
-        id: Math.random().toString(36).substr(2, 9),
         to: `invitados_${code.toLowerCase()}@boda-marisimon.com`,
+        toName: invitation.names,
         subject: `Confirmación de RSVP: ${invitation.names}`,
         body: emailBody,
         timestamp: new Date().toISOString()
@@ -187,31 +132,23 @@ async function startServer() {
     }
   });
 
-  app.get("/api/admin/db/status", async (req, res) => {
+  // Estado de la base de datos: motor único JSON atómico (compatible con cPanel/DonWeb vía api.php)
+  app.get("/api/admin/db/status", (req, res) => {
     try {
-      const sqliteInvs = await getInvitationsSqlite();
-      const sqliteExists = fs.existsSync(SQLITE_FILE);
+      const exists = fs.existsSync(DB_PATH);
       res.json({
-        engine: "SQLite 3",
-        sqliteFile: SQLITE_FILE,
-        sqliteSize: sqliteExists ? (fs.statSync(SQLITE_FILE).size / 1024).toFixed(1) + " KB" : "0 KB",
-        totalInvitations: sqliteInvs.length
+        engine: "JSON atómico",
+        dbFile: DB_PATH,
+        dbSize: exists ? (fs.statSync(DB_PATH).size / 1024).toFixed(1) + " KB" : "0 KB",
+        totalInvitations: readInvitations().length
       });
     } catch (err) { res.status(500).json({ error: String(err) }); }
   });
 
-  app.get("/api/admin/db/download-sqlite", (req, res) => {
-    if (fs.existsSync(SQLITE_FILE)) res.download(SQLITE_FILE, "wedding.sqlite");
-    else res.status(404).json({ error: "Archivo SQLite no encontrado." });
-  });
-
-  app.get("/api/admin/db/download-sql", async (req, res) => {
-    try {
-      const sql = await generateSqlDump();
-      res.setHeader("Content-Type", "application/sql");
-      res.setHeader("Content-Disposition", 'attachment; filename="boda_donweb_dump.sql"');
-      res.send(sql);
-    } catch (err) { res.status(500).json({ error: String(err) }); }
+  // Descarga de respaldo: volcado completo de db.json
+  app.get("/api/admin/db/download-backup", (req, res) => {
+    if (fs.existsSync(DB_PATH)) res.download(DB_PATH, "db.json");
+    else res.status(404).json({ error: "Archivo de datos no encontrado." });
   });
 
   app.get("/api/admin/emails", (req, res) => res.json(readEmails()));
@@ -239,7 +176,6 @@ async function startServer() {
       updatedAt: new Date().toISOString()
     };
 
-    await saveInvitationSqlite(newInvitation).catch(err => console.error("SQLite save error", err));
     const invitations = readInvitations();
     const existingIndex = invitations.findIndex(i => i.code.toUpperCase() === newInvitation.code);
     if (existingIndex !== -1) invitations[existingIndex] = newInvitation;
@@ -280,17 +216,13 @@ async function startServer() {
       guests: updatedGuests, updatedAt: new Date().toISOString()
     };
 
-    if (updatedCode !== targetCode) await deleteInvitationSqlite(targetCode).catch(() => {});
-    await saveInvitationSqlite(updatedInvitation).catch(err => console.error("SQLite save error", err));
-
     invitations[index] = updatedInvitation;
     writeInvitations(invitations);
     res.json({ success: true, invitation: updatedInvitation });
   });
 
-  app.delete("/api/admin/rsvps/:code", async (req, res) => {
+  app.delete("/api/admin/rsvps/:code", (req, res) => {
     const code = req.params.code.toUpperCase();
-    await deleteInvitationSqlite(code).catch(err => console.error("SQLite delete error", err));
     writeInvitations(readInvitations().filter(i => i.code.toUpperCase() !== code));
     res.json({ success: true });
   });

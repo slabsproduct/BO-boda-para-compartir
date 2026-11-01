@@ -29,8 +29,7 @@ import {
   AlertCircle,
   Database,
   Server,
-  HardDrive,
-  FileCode
+  HardDrive
 } from "lucide-react";
 import { Invitation, Guest } from "../types";
 import { BrandLogo } from "../components/Brand/BrandLogo";
@@ -105,9 +104,11 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [dbStatus, setDbStatus] = useState<{
     engine: string;
-    compatibleWith: string[];
-    sqliteFile: string;
-    sqliteSize: string;
+    compatibleWith?: string[];
+    dbFile?: string;
+    dbSize?: string;
+    dataFile?: string;
+    dataSize?: string;
     totalInvitations: number;
     totalGuests: number;
   } | null>(null);
@@ -996,10 +997,10 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
                 </div>
                 <div>
                   <h3 className="font-serif font-bold text-xl sm:text-2xl text-[#363B1F]">
-                    Motor de Base de Datos SQLite 3
+                    Motor de Base de Datos {dbStatus?.engine || "JSON atómico"}
                   </h3>
                   <p className="text-xs text-[#626262]">
-                    Base de datos local embebida, compatible nativamente con servidores DonWeb Argentina (Linux / cPanel / Node.js)
+                    Persistencia local en archivo JSON con escritura atómica, compatible nativamente con servidores DonWeb Argentina (Linux / cPanel)
                   </p>
                 </div>
               </div>
@@ -1022,11 +1023,11 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
             {/* Metrics Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="p-4 bg-[#FAF6F2] rounded-2xl border border-[#363B1F]/10">
-                <p className="text-[10px] font-mono uppercase tracking-wider text-[#626262]">Archivo SQLite</p>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-[#626262]">Archivo de Datos</p>
                 <p className="font-mono font-bold text-sm text-[#363B1F] mt-1 truncate">
-                  {dbStatus?.sqliteFile || 'wedding.sqlite'}
+                  {dbStatus?.dataFile || dbStatus?.dbFile || 'data/db.json'}
                 </p>
-                <p className="text-[10px] text-[#626262] mt-0.5">Tamaño: {dbStatus?.sqliteSize || 'En disco'}</p>
+                <p className="text-[10px] text-[#626262] mt-0.5">Tamaño: {dbStatus?.dataSize || dbStatus?.dbSize || 'En disco'}</p>
               </div>
 
               <div className="p-4 bg-[#FAF6F2] rounded-2xl border border-[#363B1F]/10">
@@ -1061,21 +1062,11 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
               </h4>
               <div className="flex flex-wrap items-center gap-3">
                 <a
-                  href="/api/admin/db/download-sqlite"
-                  download="wedding.sqlite"
+                  href="/api/admin/db/download-backup"
                   className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#363B1F] text-[#FAF6F2] rounded-xl text-xs font-mono font-bold uppercase tracking-wider hover:bg-[#272B15] transition-colors shadow-xs"
                 >
                   <Download className="w-4 h-4" />
-                  Descargar wedding.sqlite
-                </a>
-
-                <a
-                  href="/api/admin/db/download-sql"
-                  download="wedding_dump.sql"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-[#363B1F]/20 text-[#363B1F] rounded-xl text-xs font-mono font-bold uppercase tracking-wider hover:bg-[#FAF6F2] transition-colors"
-                >
-                  <FileCode className="w-4 h-4 text-[#6E0D23]" />
-                  Descargar Dump SQL (.sql)
+                  Descargar Respaldo (db.json)
                 </a>
 
                 <button
@@ -1135,7 +1126,7 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
                 </div>
                 <h5 className="font-bold text-[#363B1F] text-sm">Subir a cPanel / DonWeb</h5>
                 <p className="text-[#626262] leading-relaxed">
-                  Subí el contenido a tu carpeta <code className="bg-[#FAF6F2] px-1 py-0.5 rounded text-[11px] font-mono text-[#6E0D23]">public_html/boda/</code>. Si usás el selector de Node.js de DonWeb, la base SQLite funcionará directamente sin necesidad de crear servidores MySQL ni usuarios externos.
+                  Subí el contenido a tu carpeta <code className="bg-[#FAF6F2] px-1 py-0.5 rounded text-[11px] font-mono text-[#6E0D23]">public_html/boda/</code>. El backend <code className="bg-[#FAF6F2] px-1 py-0.5 rounded text-[11px] font-mono text-[#6E0D23]">api.php</code> funciona nativamente en PHP del hosting compartido: las reservas se guardan en <code className="bg-[#FAF6F2] px-1 py-0.5 rounded text-[11px] font-mono text-[#6E0D23]">data/db.json</code> con escritura atómica, sin necesitar Node.js ni MySQL.
                 </p>
               </div>
             </div>
