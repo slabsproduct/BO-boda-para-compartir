@@ -40,31 +40,16 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
     if (!frame) return;
 
     document.documentElement.classList.add("home-scrollbar-hidden");
-    const timelineLottiePreloadUrl = assetUrl("/assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c.lottie");
-    let timelineLottiePreload = document.querySelector<HTMLLinkElement>(
-      `link[rel="preload"][href="${timelineLottiePreloadUrl}"]`
-    );
-    if (!timelineLottiePreload) {
-      timelineLottiePreload = document.createElement("link");
-      timelineLottiePreload.rel = "preload";
-      timelineLottiePreload.as = "fetch";
-      timelineLottiePreload.crossOrigin = "anonymous";
-      timelineLottiePreload.href = timelineLottiePreloadUrl;
-      document.head.appendChild(timelineLottiePreload);
-    }
-
     const loadingStartedAt = Date.now();
     let preloadTimeout: number | undefined;
     let fallbackTimeout: number | undefined;
-    let timelineLottieTimer: number | undefined;
     let cleanupFrame: (() => void) | undefined;
     let iframeLoaded = false;
     let heroVideoReady = false;
-    let timelineLottieReady = false;
     let hideLoaderScheduled = false;
 
     const hideLoaderWhenReady = () => {
-      if (!iframeLoaded || !heroVideoReady || !timelineLottieReady || hideLoaderScheduled) return;
+      if (!iframeLoaded || !heroVideoReady || hideLoaderScheduled) return;
       hideLoaderScheduled = true;
       const minimumLoadingTime = 1800;
       const remainingLoadingTime = Math.max(0, minimumLoadingTime - (Date.now() - loadingStartedAt));
@@ -87,33 +72,6 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       if (!childWindow) return;
 
       cleanupFrame?.();
-      timelineLottieReady = false;
-      const timelineCanvas = childDocument.querySelector("#cronograma canvas");
-      if (!timelineCanvas) {
-        timelineLottieReady = true;
-      } else {
-        const timelineLottieUrl = new URL(
-          "assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c.lottie",
-          childDocument.baseURI
-        ).href;
-        const checkTimelineLottieLoaded = () => {
-          const resourceLoaded = childWindow.performance
-            .getEntriesByName(timelineLottieUrl)
-            .some((entry) => entry.entryType === "resource" && entry.duration > 0);
-          if (!resourceLoaded) return;
-
-          timelineLottieReady = true;
-          if (timelineLottieTimer !== undefined) {
-            window.clearInterval(timelineLottieTimer);
-            timelineLottieTimer = undefined;
-          }
-          hideLoaderWhenReady();
-        };
-        checkTimelineLottieLoaded();
-        if (!timelineLottieReady) {
-          timelineLottieTimer = window.setInterval(checkTimelineLottieLoaded, 250);
-        }
-      }
 
       let scrollbarStyles = childDocument.querySelector<HTMLStyleElement>(
         "#home-scrollbar-hidden-styles"
@@ -610,10 +568,6 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       cleanupFrame = () => {
         removeHeroViewportListener?.();
         window.clearInterval(countdownTimer);
-        if (timelineLottieTimer !== undefined) {
-          window.clearInterval(timelineLottieTimer);
-          timelineLottieTimer = undefined;
-        }
         flipCardMutationObserver.disconnect();
         flipCardTimers.forEach((timer) => window.clearTimeout(timer));
         flipHintRemovalTimers.forEach((timer) => window.clearTimeout(timer));
@@ -639,7 +593,6 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       frame.removeEventListener("load", handleLoad);
       window.clearTimeout(preloadTimeout);
       window.clearTimeout(fallbackTimeout);
-      if (timelineLottieTimer !== undefined) window.clearInterval(timelineLottieTimer);
       cleanupFrame?.();
       document.documentElement.classList.remove("home-scrollbar-hidden");
     };

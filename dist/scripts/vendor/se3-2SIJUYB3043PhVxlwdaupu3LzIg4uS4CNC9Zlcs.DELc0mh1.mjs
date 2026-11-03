@@ -35577,6 +35577,52 @@ var Ap = (e) => {
     style: { width: `100%`, height: `100%`, objectFit: `contain`, display: `block`, background: `transparent` },
   });
 };
+function LottieWhenVisible(e) {
+  let [t, n] = l(null), [r, i] = l(!1);
+  return (
+    _(() => {
+      if (!t || r) return;
+      if (typeof IntersectionObserver == `undefined`) {
+        i(!0);
+        return;
+      }
+      let observer = new IntersectionObserver(
+        (entries, observer) => {
+          entries.some((entry) => entry.isIntersecting) && (i(!0), observer.disconnect());
+        },
+        { rootMargin: `500px 0px` }
+      );
+      return (
+        observer.observe(t),
+        () => {
+          observer.disconnect();
+        }
+      );
+    }, [t, r]),
+    f(`div`, {
+      ref: n,
+      style: { width: `100%`, height: `100%` },
+      children: r
+        ? p(
+            Ep,
+            {
+              src: e.src,
+              autoplay: e.autoplay,
+              loop: e.loop,
+              mode: e.mode,
+              playOnHover: e.playOnHover,
+              backgroundColor: e.backgroundColor,
+              speed: e.speed,
+              dotLottieRefCallback: e.dotLottieRefCallback,
+              style: e.style,
+              renderConfig: e.renderConfig,
+            },
+            e.src
+          )
+        : null,
+    })
+  );
+}
 function wp(e) {
   let t = z.current() === z.canvas,
     [n, r] = l(null),
@@ -35654,22 +35700,18 @@ function wp(e) {
       children: [
         p(`div`, {
           style: { position: `relative`, width: `100%`, flex: 1, minHeight: 0 },
-          children: p(
-            Ep,
-            {
-              src: a,
-              autoplay: !t && !e.hover && e.autoplay,
-              loop: e.loop,
-              mode: i,
-              playOnHover: e.hover,
-              backgroundColor: e.background,
-              speed: e.speed,
-              dotLottieRefCallback: r,
-              style: { width: `100%`, height: `100%` },
-              renderConfig: e.controls ? { autoResize: !0 } : void 0,
-            },
-            a
-          ),
+          children: p(LottieWhenVisible, {
+            src: a,
+            autoplay: !t && !e.hover && e.autoplay,
+            loop: e.loop,
+            mode: i,
+            playOnHover: e.hover,
+            backgroundColor: e.background,
+            speed: e.speed,
+            dotLottieRefCallback: r,
+            style: { width: `100%`, height: `100%` },
+            renderConfig: e.controls ? { autoResize: !0 } : void 0,
+          }),
         }),
         e.controls
           ? p(Sp, {
