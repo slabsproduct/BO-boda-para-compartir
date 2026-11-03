@@ -152,7 +152,8 @@ function normalize_guests($guests) {
     if (!is_array($g)) continue;
     $ng = array(
       'name' => isset($g['name']) ? strval($g['name']) : '',
-      'isAttending' => !empty($g['isAttending']),
+      'isAttending' => array_key_exists('isAttending', $g) && !is_null($g['isAttending'])
+        ? !empty($g['isAttending']) : null,
       'dietaryRestrictions' => isset($g['dietaryRestrictions']) ? strval($g['dietaryRestrictions']) : 'none',
     );
     if (array_key_exists('notes', $g))               $ng['notes'] = strval($g['notes']);
@@ -161,6 +162,113 @@ function normalize_guests($guests) {
     $out[] = $ng;
   }
   return $out;
+}
+
+function email_html_escape($value) {
+  return htmlspecialchars(strval($value), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
+function send_brevo_rsvp_notification(array $invitation) {
+  $apiKey = trim(strval(getenv('BODA_BREVO_API_KEY') ?: (isset($_SERVER['BODA_BREVO_API_KEY']) ? $_SERVER['BODA_BREVO_API_KEY'] : '')));
+  if ($apiKey === '') {
+    return array('sent' => false, 'reason' => 'not_configured');
+  }
+  if (!function_exists('curl_init')) {
+    return array('sent' => false, 'reason' => 'curl_unavailable');
+  }
+
+  $status = isset($invitation['status']) ? strval($invitation['status']) : 'pending';
+  $statusLabel = $status === 'declined' ? 'Rechazada' : ($status === 'confirmed' ? 'Confirmada' : 'Pendiente');
+  $guestRows = '';
+  $textGuestRows = array();
+  foreach (isset($invitation['guests']) && is_array($invitation['guests']) ? $invitation['guests'] : array() as $guest) {
+    $attending = !empty($guest['isAttending']);
+    $dietary = isset($guest['dietaryRestrictions']) && $guest['dietaryRestrictions'] !== 'none'
+      ? strval($guest['dietaryRestrictions']) : 'Ninguna';
+    $transport = !empty($guest['needsTransport'])
+      ? 'Sí — desde la boda en Potrerillos hasta Mendoza Capital'
+      : 'No';
+    $notes = isset($guest['notes']) && trim(strval($guest['notes'])) !== ''
+      ? trim(strval($guest['notes'])) : 'Sin comentarios';
+    $name = isset($guest['name']) ? strval($guest['name']) : '';
+
+    $guestRows .= '<tr>'
+      . '<td style="padding:8px;border:1px solid #ddd">' . email_html_escape($name) . '</td>'
+      . '<td style="padding:8px;border:1px solid #ddd">' . ($attending ? 'Sí' : 'No') . '</td>'
+      . '<td style="padding:8px;border:1px solid #ddd">' . email_html_escape($dietary) . '</td>'
+      . '<td style="padding:8px;border:1px solid #ddd">' . email_html_escape($transport) . '</td>'
+      . '<td style="padding:8px;border:1px solid #ddd">' . email_html_escape($notes) . '</td>'
+      . '</tr>';
+    $textGuestRows[] = '- ' . $name . ': asistencia ' . ($attending ? 'sí' : 'no')
+      . '; restricciones alimentarias: ' . $dietary . '; transporte: ' . $transport . '; comentarios: ' . $notes;
+  }
+
+  $code = isset($invitation['code']) ? strval($invitation['code']) : '';
+  $names = isset($invitation['names']) ? strval($invitation['names']) : '';
+  $youtubeEmail = isset($invitation['youtubeEmail']) ? strval($invitation['youtubeEmail']) : '';
+  $subject = 'Nueva respuesta RSVP: ' . $statusLabel;
+  $htmlContent = '<!doctype html><html lang="es"><body style="font-family:Arial,sans-serif;color:#363B1F">'
+    . '<h2>Nueva respuesta de invitación: ' . email_html_escape($statusLabel) . '</h2>'
+    . '<p><strong>Código:</strong> ' . email_html_escape($code) . '<br>'
+    . '<strong>Invitación:</strong> ' . email_html_escape($names) . '<br>'
+    . '<strong>Pases:</strong> ' . intval(isset($invitation['passes']) ? $invitation['passes'] : 0) . '</p>'
+    . '<table style="border-collapse:collapse;width:100%"><thead><tr>'
+    . '<th style="padding:8px;border:1px solid #ddd;text-align:left">Invitado</th>'
+    . '<th style="padding:8px;border:1px solid #ddd;text-align:left">Asiste</th>'
+    . '<th style="padding:8px;border:1px solid #ddd;text-align:left">Restricciones</th>'
+    . '<th style="padding:8px;border:1px solid #ddd;text-align:left">Transporte</th>'
+    . '<th style="padding:8px;border:1px solid #ddd;text-align:left">Comentarios</th>'
+    . '</tr></thead><tbody>' . $guestRows . '</tbody></table>'
+    . ($youtubeEmail !== '' ? '<p><strong>Email para el live:</strong> ' . email_html_escape($youtubeEmail) . '</p>' : '')
+    . '<p><strong>Actualizado:</strong> ' . email_html_escape(isset($invitation['updatedAt']) ? $invitation['updatedAt'] : gmdate('c')) . '</p>'
+    . '</body></html>';
+  $textContent = "Nueva respuesta de invitación: {$statusLabel}\n"
+    . "Código: {$code}\nInvitación: {$names}\nPases: " . intval(isset($invitation['passes']) ? $invitation['passes'] : 0) . "\n\n"
+    . implode("\n", $textGuestRows)
+    . ($youtubeEmail !== '' ? "\n\nEmail para el live: {$youtubeEmail}" : '')
+    . "\n\nActualizado: " . (isset($invitation['updatedAt']) ? $invitation['updatedAt'] : gmdate('c'));
+
+  $payload = json_encode(array(
+    'sender' => array('name' => 'Mari & Simón', 'email' => 'bodamariysimon@gmail.com'),
+    'to' => array(array('email' => 'pmariangel98@gmail.com')),
+    'subject' => $subject,
+    'htmlContent' => $htmlContent,
+    'textContent' => $textContent,
+  ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+  if ($payload === false) {
+    return array('sent' => false, 'reason' => 'payload_encoding_failed');
+  }
+
+  $curl = curl_init('https://api.brevo.com/v3/smtp/email');
+  if ($curl === false) {
+    return array('sent' => false, 'reason' => 'curl_initialization_failed');
+  }
+  curl_setopt_array($curl, array(
+    CURLOPT_POST => true,
+    CURLOPT_POSTFIELDS => $payload,
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_CONNECTTIMEOUT => 5,
+    CURLOPT_TIMEOUT => 15,
+    CURLOPT_HTTPHEADER => array(
+      'accept: application/json',
+      'api-key: ' . $apiKey,
+      'content-type: application/json',
+    ),
+  ));
+  $responseBody = curl_exec($curl);
+  $curlError = curl_error($curl);
+  $httpStatus = intval(curl_getinfo($curl, CURLINFO_HTTP_CODE));
+  curl_close($curl);
+
+  if ($responseBody === false) {
+    error_log('[brevo] No se pudo enviar el aviso RSVP: ' . $curlError);
+    return array('sent' => false, 'reason' => 'request_failed');
+  }
+  if ($httpStatus < 200 || $httpStatus >= 300) {
+    error_log('[brevo] El API respondió HTTP ' . $httpStatus . ': ' . substr(strval($responseBody), 0, 500));
+    return array('sent' => false, 'reason' => 'api_rejected');
+  }
+  return array('sent' => true);
 }
 
 // ---------------------------------------------------------------------------
@@ -223,8 +331,11 @@ try {
       if (!isset($body['guests']) || !is_array($body['guests'])) {
         json_response(array('success' => false, 'error' => 'Datos de invitados inválidos.'), 400);
       }
+      if (!isset($body['status']) || !in_array($body['status'], array('confirmed', 'declined'), true)) {
+        json_response(array('success' => false, 'error' => 'Estado de confirmación inválido.'), 400);
+      }
       $guests = normalize_guests($body['guests']);
-      $status = isset($body['status']) ? strval($body['status']) : 'pending';
+      $status = strval($body['status']);
       $youtubeEmail = (isset($body['youtubeEmail']) && is_string($body['youtubeEmail']) && trim($body['youtubeEmail']) !== '')
         ? trim($body['youtubeEmail']) : null;
 
@@ -233,7 +344,15 @@ try {
         $idx = find_index_by_code($invitations, $code);
         if ($idx === -1) return SKIP_WRITE; // no existe -> 404
         $invitation = $invitations[$idx];
-        $invitation['guests'] = $guests;
+        $storedGuests = isset($invitation['guests']) && is_array($invitation['guests']) ? $invitation['guests'] : array();
+        $lockedGuests = array();
+        foreach ($storedGuests as $guestIndex => $storedGuest) {
+          $submittedGuest = isset($guests[$guestIndex]) && is_array($guests[$guestIndex]) ? $guests[$guestIndex] : array();
+          $lockedGuest = array_merge($storedGuest, $submittedGuest);
+          $lockedGuest['name'] = isset($storedGuest['name']) ? strval($storedGuest['name']) : '';
+          $lockedGuests[] = $lockedGuest;
+        }
+        $invitation['guests'] = $lockedGuests;
         $invitation['status'] = $status;
         if (!is_null($youtubeEmail)) $invitation['youtubeEmail'] = $youtubeEmail;
         $invitation['updatedAt'] = gmdate('Y-m-d\TH:i:s.') . sprintf('%03d', intval((microtime(true) * 1000) % 1000)) . 'Z';
@@ -265,7 +384,15 @@ try {
         return $emails;
       });
 
-      json_response(array('success' => true, 'invitation' => $invitation));
+      $notification = send_brevo_rsvp_notification($invitation);
+      if (!$notification['sent']) {
+        error_log('[rsvp] Se guardó la respuesta ' . $code . ', pero no se envió el aviso Brevo (' . $notification['reason'] . ').');
+      }
+      json_response(array(
+        'success' => true,
+        'invitation' => $invitation,
+        'notification' => $notification,
+      ));
     }
 
     json_response(array('success' => false, 'error' => 'Método no permitido.'), 405);
@@ -290,12 +417,25 @@ try {
       if ($code === '' || $names === '' || !$passes) {
         json_response(array('success' => false, 'error' => 'Faltan datos.'), 400);
       }
+      $submittedGuests = array_key_exists('guests', $body) ? $body['guests'] : null;
+      if (array_key_exists('guests', $body)) {
+        if (!is_array($submittedGuests) || count($submittedGuests) !== $passes) {
+          json_response(array('success' => false, 'error' => 'La cantidad de nombres debe coincidir con los pases.'), 400);
+        }
+        foreach ($submittedGuests as $submittedGuest) {
+          if (!is_array($submittedGuest) || trim(strval(isset($submittedGuest['name']) ? $submittedGuest['name'] : '')) === '') {
+            json_response(array('success' => false, 'error' => 'Ingresá el nombre completo de cada invitado.'), 400);
+          }
+        }
+      }
       $guests = array();
       $parts = preg_split('/\s+&\s*/u', $names);
       for ($i = 0; $i < $passes; $i++) {
         $guests[] = array(
-          'name' => $i === 0 ? $parts[0] : "Acompañante $i",
-          'isAttending' => true,
+          'name' => is_array($submittedGuests)
+            ? trim(strval($submittedGuests[$i]['name']))
+            : ($i === 0 ? $parts[0] : "Acompañante $i"),
+          'isAttending' => null,
           'dietaryRestrictions' => 'none',
         );
       }
@@ -346,7 +486,7 @@ try {
 
         while (count($updatedGuests) < $newPasses) {
           $i = count($updatedGuests);
-          $updatedGuests[] = array('name' => 'Acompañante ' . ($i + 1), 'isAttending' => true, 'dietaryRestrictions' => 'none');
+          $updatedGuests[] = array('name' => 'Acompañante ' . ($i + 1), 'isAttending' => null, 'dietaryRestrictions' => 'none');
         }
         if (count($updatedGuests) > $newPasses) {
           $updatedGuests = array_slice($updatedGuests, 0, $newPasses);

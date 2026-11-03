@@ -86,6 +86,69 @@ function writeEmail(email) {
   emails.unshift(email);
   import_fs.default.writeFileSync(EMAILS_PATH, JSON.stringify(emails, null, 2), "utf8");
 }
+function escapeEmailHtml(value) {
+  const entities = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  };
+  return String(value ?? "").replace(/[&<>"']/g, (character) => entities[character]);
+}
+async function sendBrevoRsvpNotification(invitation) {
+  const apiKey = process.env.BODA_BREVO_API_KEY?.trim();
+  if (!apiKey) return { sent: false, reason: "not_configured" };
+  const statusLabel = invitation.status === "declined" ? "Rechazada" : invitation.status === "confirmed" ? "Confirmada" : "Pendiente";
+  const guestRows = invitation.guests.map((guest) => {
+    const dietary = guest.dietaryRestrictions && guest.dietaryRestrictions !== "none" ? guest.dietaryRestrictions : "Ninguna";
+    const transport = guest.needsTransport ? "S\xED \u2014 desde la boda en Potrerillos hasta Mendoza Capital" : "No";
+    return `<tr><td style="padding:8px;border:1px solid #ddd">${escapeEmailHtml(guest.name)}</td><td style="padding:8px;border:1px solid #ddd">${guest.isAttending ? "S\xED" : "No"}</td><td style="padding:8px;border:1px solid #ddd">${escapeEmailHtml(dietary)}</td><td style="padding:8px;border:1px solid #ddd">${escapeEmailHtml(transport)}</td><td style="padding:8px;border:1px solid #ddd">${escapeEmailHtml(guest.notes || "Sin comentarios")}</td></tr>`;
+  }).join("");
+  const htmlContent = `<!doctype html><html lang="es"><body style="font-family:Arial,sans-serif;color:#363B1F"><h2>Nueva respuesta de invitaci\xF3n: ${escapeEmailHtml(statusLabel)}</h2><p><strong>C\xF3digo:</strong> ${escapeEmailHtml(invitation.code)}<br><strong>Invitaci\xF3n:</strong> ${escapeEmailHtml(invitation.names)}<br><strong>Pases:</strong> ${invitation.passes}</p><table style="border-collapse:collapse;width:100%"><thead><tr><th style="padding:8px;border:1px solid #ddd;text-align:left">Invitado</th><th style="padding:8px;border:1px solid #ddd;text-align:left">Asiste</th><th style="padding:8px;border:1px solid #ddd;text-align:left">Restricciones</th><th style="padding:8px;border:1px solid #ddd;text-align:left">Transporte</th><th style="padding:8px;border:1px solid #ddd;text-align:left">Comentarios</th></tr></thead><tbody>${guestRows}</tbody></table>` + (invitation.youtubeEmail ? `<p><strong>Email para el live:</strong> ${escapeEmailHtml(invitation.youtubeEmail)}</p>` : "") + `<p><strong>Actualizado:</strong> ${escapeEmailHtml(invitation.updatedAt || (/* @__PURE__ */ new Date()).toISOString())}</p></body></html>`;
+  const textGuests = invitation.guests.map((guest) => {
+    const dietary = guest.dietaryRestrictions && guest.dietaryRestrictions !== "none" ? guest.dietaryRestrictions : "Ninguna";
+    const transport = guest.needsTransport ? "S\xED \u2014 desde la boda en Potrerillos hasta Mendoza Capital" : "No";
+    return `- ${guest.name}: asistencia ${guest.isAttending ? "s\xED" : "no"}; restricciones: ${dietary}; transporte: ${transport}; comentarios: ${guest.notes || "Sin comentarios"}`;
+  }).join("\n");
+  const textContent = `Nueva respuesta de invitaci\xF3n: ${statusLabel}
+C\xF3digo: ${invitation.code}
+Invitaci\xF3n: ${invitation.names}
+Pases: ${invitation.passes}
+
+` + textGuests + (invitation.youtubeEmail ? `
+
+Email para el live: ${invitation.youtubeEmail}` : "") + `
+
+Actualizado: ${invitation.updatedAt || (/* @__PURE__ */ new Date()).toISOString()}`;
+  try {
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "api-key": apiKey,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        sender: { name: "Mari & Sim\xF3n", email: "bodamariysimon@gmail.com" },
+        to: [{ email: "pmariangel98@gmail.com" }],
+        subject: `Nueva respuesta RSVP: ${statusLabel}`,
+        htmlContent,
+        textContent
+      }),
+      signal: AbortSignal.timeout(15e3)
+    });
+    if (!response.ok) {
+      const details = (await response.text()).slice(0, 500);
+      console.error(`[brevo] El API respondi\xF3 HTTP ${response.status}: ${details}`);
+      return { sent: false, reason: "api_rejected" };
+    }
+    return { sent: true };
+  } catch (error) {
+    console.error("[brevo] No se pudo enviar el aviso RSVP.", error);
+    return { sent: false, reason: "request_failed" };
+  }
+}
 async function startServer() {
   ensureDb();
   const isProduction = process.env.NODE_ENV === "production";
@@ -165,9 +228,16 @@ async function startServer() {
     if (!guests || !Array.isArray(guests)) {
       return res.status(400).json({ success: false, error: "Datos de invitados inv\xE1lidos." });
     }
+    if (status !== "confirmed" && status !== "declined") {
+      return res.status(400).json({ success: false, error: "Estado de confirmaci\xF3n inv\xE1lido." });
+    }
     const invitation = readInvitations().find((i) => i.code.toUpperCase() === code) || null;
     if (invitation) {
-      invitation.guests = guests;
+      invitation.guests = invitation.guests.map((guest, index2) => ({
+        ...guest,
+        ...guests[index2],
+        name: guest.name
+      }));
       invitation.status = status;
       invitation.youtubeEmail = typeof youtubeEmail === "string" && youtubeEmail.trim() ? youtubeEmail.trim() : invitation.youtubeEmail;
       invitation.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
@@ -190,7 +260,11 @@ Mari & Sim\xF3n \u{1F48D}`;
         body: emailBody,
         timestamp: (/* @__PURE__ */ new Date()).toISOString()
       });
-      res.json({ success: true, invitation });
+      const notification = await sendBrevoRsvpNotification(invitation);
+      if (!notification.sent) {
+        console.error(`[rsvp] Se guard\xF3 la respuesta ${code}, pero no se envi\xF3 el aviso Brevo (${notification.reason}).`);
+      }
+      res.json({ success: true, invitation, notification });
     } else {
       res.status(404).json({ success: false, error: "Invitaci\xF3n no encontrada." });
     }
@@ -218,17 +292,26 @@ Mari & Sim\xF3n \u{1F48D}`;
     res.json({ success: true });
   });
   app.post("/api/admin/rsvps", async (req, res) => {
-    const { code, names, passes } = req.body;
+    const { code, names, passes, guests: submittedGuests } = req.body;
     if (!code || !names || !passes) return res.status(400).json({ success: false, error: "Faltan datos." });
-    const guests = Array.from({ length: parseInt(passes, 10) }, (_, idx) => ({
-      name: idx === 0 ? names.split(" & ")[0] : `Acompa\xF1ante ${idx}`,
-      isAttending: true,
+    const passCount = parseInt(passes, 10);
+    if (!Number.isInteger(passCount) || passCount < 1) {
+      return res.status(400).json({ success: false, error: "La cantidad de pases no es v\xE1lida." });
+    }
+    if (submittedGuests !== void 0 && (!Array.isArray(submittedGuests) || submittedGuests.length !== passCount || submittedGuests.some(
+      (guest) => !guest || typeof guest !== "object" || !("name" in guest) || typeof guest.name !== "string" || !guest.name.trim()
+    ))) {
+      return res.status(400).json({ success: false, error: "Ingres\xE1 el nombre completo de cada invitado." });
+    }
+    const guests = Array.from({ length: passCount }, (_, idx) => ({
+      name: submittedGuests ? submittedGuests[idx].name.trim() : idx === 0 ? names.split(" & ")[0] : `Acompa\xF1ante ${idx}`,
+      isAttending: null,
       dietaryRestrictions: "none"
     }));
     const newInvitation = {
       code: code.trim().toUpperCase(),
       names: names.trim(),
-      passes: parseInt(passes, 10),
+      passes: passCount,
       status: "pending",
       guests,
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
@@ -255,7 +338,7 @@ Mari & Sim\xF3n \u{1F48D}`;
     let updatedGuests = guests || current.guests || [];
     if (updatedGuests.length < newPasses) {
       for (let i = updatedGuests.length; i < newPasses; i++) {
-        updatedGuests.push({ name: `Acompa\xF1ante ${i + 1}`, isAttending: true, dietaryRestrictions: "none" });
+        updatedGuests.push({ name: `Acompa\xF1ante ${i + 1}`, isAttending: null, dietaryRestrictions: "none" });
       }
     } else if (updatedGuests.length > newPasses) {
       updatedGuests = updatedGuests.slice(0, newPasses);

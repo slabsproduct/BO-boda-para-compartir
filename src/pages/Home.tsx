@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Music2, Pause } from "lucide-react";
 import { assetUrl, framerHomeUrl, rsvpViewUrl, rewriteLocalAssetUrl } from "../lib/base";
 
 interface HomeProps {
@@ -8,32 +9,75 @@ interface HomeProps {
 
 export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
   const frameRef = useRef<HTMLIFrameElement>(null);
+  const musicRef = useRef<HTMLAudioElement>(null);
   const onRsvpClickRef = useRef(onRsvpClick);
   const [frameHeight, setFrameHeight] = useState(() => window.innerHeight);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+  const [musicPlaybackError, setMusicPlaybackError] = useState(false);
   onRsvpClickRef.current = onRsvpClick;
+
+  const toggleMusic = async () => {
+    const audio = musicRef.current;
+    if (!audio) return;
+
+    if (!audio.paused) {
+      audio.pause();
+      return;
+    }
+
+    setMusicPlaybackError(false);
+    try {
+      await audio.play();
+    } catch (error) {
+      console.error("[home] No se pudo reproducir la música del hero.", error);
+      setMusicPlaybackError(true);
+    }
+  };
 
   useEffect(() => {
     const frame = frameRef.current;
     if (!frame) return;
 
+    document.documentElement.classList.add("home-scrollbar-hidden");
+    const timelineLottiePreloadUrl = assetUrl("/assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c.lottie");
+    let timelineLottiePreload = document.querySelector<HTMLLinkElement>(
+      `link[rel="preload"][href="${timelineLottiePreloadUrl}"]`
+    );
+    if (!timelineLottiePreload) {
+      timelineLottiePreload = document.createElement("link");
+      timelineLottiePreload.rel = "preload";
+      timelineLottiePreload.as = "fetch";
+      timelineLottiePreload.crossOrigin = "anonymous";
+      timelineLottiePreload.href = timelineLottiePreloadUrl;
+      document.head.appendChild(timelineLottiePreload);
+    }
+
     const loadingStartedAt = Date.now();
     let preloadTimeout: number | undefined;
     let fallbackTimeout: number | undefined;
+    let timelineLottieTimer: number | undefined;
     let cleanupFrame: (() => void) | undefined;
+    let iframeLoaded = false;
+    let heroVideoReady = false;
+    let timelineLottieReady = false;
+    let hideLoaderScheduled = false;
 
-    // El loader debe ocultarse solo cuando el iframe termino de CARGAR DE VERDAD
-    // (recursos + hidratacion de Framer), no por un cronometro fijo.
-    const hideLoaderAfterMinimum = () => {
-      if (preloadTimeout) return; // ya programado
-      const minimumLoadingTime = 1200;
+    const hideLoaderWhenReady = () => {
+      if (!iframeLoaded || !heroVideoReady || !timelineLottieReady || hideLoaderScheduled) return;
+      hideLoaderScheduled = true;
+      const minimumLoadingTime = 1800;
       const remainingLoadingTime = Math.max(0, minimumLoadingTime - (Date.now() - loadingStartedAt));
-      preloadTimeout = window.setTimeout(() => setIsLoading(false), remainingLoadingTime);
+      preloadTimeout = window.setTimeout(() => {
+        window.clearTimeout(fallbackTimeout);
+        setIsLoading(false);
+      }, remainingLoadingTime);
     };
 
-    // Red de seguridad: si el evento "load" nunca llega (cache buster, error de red,
-    // iframe bloqueado), ocultar el loader a los 8s para no tapar el sitio para siempre.
-    fallbackTimeout = window.setTimeout(hideLoaderAfterMinimum, 8000);
+    fallbackTimeout = window.setTimeout(() => {
+      console.warn("[home] Se agotó la espera máxima de carga; se ocultará el preloader.");
+      setIsLoading(false);
+    }, 20000);
 
     const handleLoad = () => {
       const childDocument = frame.contentDocument;
@@ -42,10 +86,130 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       const childWindow = childDocument.defaultView;
       if (!childWindow) return;
 
+      cleanupFrame?.();
+      timelineLottieReady = false;
+      const timelineCanvas = childDocument.querySelector("#cronograma canvas");
+      if (!timelineCanvas) {
+        timelineLottieReady = true;
+      } else {
+        const timelineLottieUrl = new URL(
+          "assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c.lottie",
+          childDocument.baseURI
+        ).href;
+        const checkTimelineLottieLoaded = () => {
+          const resourceLoaded = childWindow.performance
+            .getEntriesByName(timelineLottieUrl)
+            .some((entry) => entry.entryType === "resource" && entry.duration > 0);
+          if (!resourceLoaded) return;
+
+          timelineLottieReady = true;
+          if (timelineLottieTimer !== undefined) {
+            window.clearInterval(timelineLottieTimer);
+            timelineLottieTimer = undefined;
+          }
+          hideLoaderWhenReady();
+        };
+        checkTimelineLottieLoaded();
+        if (!timelineLottieReady) {
+          timelineLottieTimer = window.setInterval(checkTimelineLottieLoaded, 250);
+        }
+      }
+
+      let scrollbarStyles = childDocument.querySelector<HTMLStyleElement>(
+        "#home-scrollbar-hidden-styles"
+      );
+      if (!scrollbarStyles) {
+        scrollbarStyles = childDocument.createElement("style");
+        scrollbarStyles.id = "home-scrollbar-hidden-styles";
+        scrollbarStyles.textContent = `
+          @media (min-width: 810px) {
+            html, body { scrollbar-width: none !important; -ms-overflow-style: none !important; }
+            html::-webkit-scrollbar, body::-webkit-scrollbar { display: none !important; width: 0 !important; }
+          }
+        `;
+        childDocument.head.appendChild(scrollbarStyles);
+      }
+      let mobileContactStyles = childDocument.querySelector<HTMLStyleElement>(
+        "#home-mobile-contact-styles"
+      );
+      if (!mobileContactStyles) {
+        mobileContactStyles = childDocument.createElement("style");
+        mobileContactStyles.id = "home-mobile-contact-styles";
+        mobileContactStyles.textContent = `
+          #home-mobile-contact-section { display: none; }
+          @media (max-width: 809.98px) {
+            #home-mobile-contact-section {
+              display: flex !important;
+              flex-direction: column;
+              align-items: center;
+              gap: 14px;
+              margin: 24px 20px 36px;
+              padding: 24px 18px;
+              border-radius: 20px;
+              background: #f1ebe3;
+              color: #363b1f;
+              text-align: center;
+            }
+            #home-mobile-contact-section p {
+              margin: 0;
+              font: 500 18px/1.35 Inter, sans-serif;
+            }
+            #home-mobile-contact-section a {
+              display: inline-flex;
+              min-height: 44px;
+              align-items: center;
+              justify-content: center;
+              padding: 0 22px;
+              border-radius: 999px;
+              background: #363b1f;
+              color: #fff;
+              font: 600 14px/1 Manrope, sans-serif;
+              text-decoration: none;
+            }
+          }
+        `;
+        childDocument.head.appendChild(mobileContactStyles);
+      }
+
+      const faqSection = childDocument.querySelector<HTMLElement>("#faq");
+      if (faqSection && !childDocument.querySelector("#home-mobile-contact-section")) {
+        const contactSection = childDocument.createElement("div");
+        contactSection.id = "home-mobile-contact-section";
+        const contactMessage = childDocument.createElement("p");
+        contactMessage.textContent = "¿Tienes más dudas?";
+        const contactButton = childDocument.createElement("a");
+        contactButton.href = `https://wa.me/5491176387793?text=${encodeURIComponent(
+          "Hola Mari y Simon tengo la siguiente duda."
+        )}`;
+        contactButton.target = "_blank";
+        contactButton.rel = "noopener noreferrer";
+        contactButton.textContent = "Contáctanos al WhatsApp";
+        contactSection.append(contactMessage, contactButton);
+        faqSection.appendChild(contactSection);
+      }
+      let removeHeroViewportListener: (() => void) | undefined;
       const heroVideo = childDocument.querySelector<HTMLVideoElement>(
         ".framer-15p17nr-container video"
       );
       if (heroVideo) {
+        const mobileViewport = childWindow.matchMedia("(max-width: 809.98px)");
+        const desktopSource = assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4");
+        const mobileSource = assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc-1.mp4");
+        let heroLoadCancelled = false;
+        let responsiveStyles = childDocument.querySelector<HTMLStyleElement>(
+          "#home-responsive-hero-video-styles"
+        );
+        if (!responsiveStyles) {
+          responsiveStyles = childDocument.createElement("style");
+          responsiveStyles.id = "home-responsive-hero-video-styles";
+          responsiveStyles.textContent = `
+            @media (max-width: 809.98px) {
+              .framer-oargH .framer-15p17nr-container { aspect-ratio: 1 / 1 !important; }
+            }
+          `;
+          childDocument.head.appendChild(responsiveStyles);
+        }
+
         heroVideo.autoplay = true;
         heroVideo.muted = true;
         heroVideo.loop = true;
@@ -54,20 +218,94 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
         heroVideo.style.opacity = "1";
         heroVideo.style.visibility = "visible";
         heroVideo.style.zIndex = "1";
-        void heroVideo.play().catch((error: unknown) => {
-          console.warn("[home] No se pudo iniciar el video del hero.", {
-            error,
-            src: heroVideo.currentSrc || heroVideo.src,
-            sourceAttribute: heroVideo.getAttribute("src"),
-            readyState: heroVideo.readyState,
-            networkState: heroVideo.networkState,
-            mediaError: heroVideo.error?.message,
-            mp4Support: heroVideo.canPlayType('video/mp4; codecs="avc1.640028, mp4a.40.2"'),
-          });
-        });
-      }
+        let heroLoadSequence = 0;
+        const loadHeroVideoWithRetry = async (source: string, sequence: number): Promise<boolean> => {
+          for (let attempt = 0; attempt < 3 && !heroLoadCancelled && sequence === heroLoadSequence; attempt += 1) {
+            const ready = await new Promise<boolean>((resolve) => {
+              let settled = false;
+              let timeout: number;
+              const finish = (isReady: boolean) => {
+                if (settled) return;
+                settled = true;
+                window.clearTimeout(timeout);
+                heroVideo.removeEventListener("loadeddata", checkReady);
+                heroVideo.removeEventListener("canplay", checkReady);
+                heroVideo.removeEventListener("playing", checkReady);
+                heroVideo.removeEventListener("error", handleError);
+                resolve(isReady);
+              };
+              const checkReady = () => {
+                const currentSource = heroVideo.currentSrc;
+                const correctSource = currentSource
+                  ? new URL(currentSource).pathname === new URL(source, childDocument.baseURI).pathname
+                  : false;
+                if (
+                  correctSource &&
+                  heroVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+                  heroVideo.videoWidth > 0 &&
+                  heroVideo.videoHeight > 0
+                ) {
+                  finish(true);
+                }
+              };
+              const handleError = () => finish(false);
 
-      cleanupFrame?.();
+              heroVideo.addEventListener("loadeddata", checkReady);
+              heroVideo.addEventListener("canplay", checkReady);
+              heroVideo.addEventListener("playing", checkReady);
+              heroVideo.addEventListener("error", handleError);
+              timeout = window.setTimeout(() => finish(false), 4500);
+              heroVideo.src = source;
+              heroVideo.load();
+              void heroVideo.play().catch((error: unknown) => {
+                if (!heroLoadCancelled && sequence === heroLoadSequence) {
+                  console.warn("[home] El navegador no inició la reproducción automática del video.", {
+                    error,
+                    src: heroVideo.currentSrc || heroVideo.src,
+                  });
+                }
+                checkReady();
+              });
+              checkReady();
+            });
+
+            if (sequence !== heroLoadSequence || heroLoadCancelled) return false;
+            if (ready) return true;
+            if (attempt < 2 && !heroLoadCancelled && sequence === heroLoadSequence) {
+              await new Promise((resolve) => window.setTimeout(resolve, 350 * (attempt + 1)));
+            }
+          }
+
+          if (!heroLoadCancelled && sequence === heroLoadSequence) {
+            console.warn("[home] El video del hero no pudo validarse tras tres intentos.", {
+              src: heroVideo.currentSrc || heroVideo.src,
+              readyState: heroVideo.readyState,
+              networkState: heroVideo.networkState,
+              videoWidth: heroVideo.videoWidth,
+              videoHeight: heroVideo.videoHeight,
+              mediaError: heroVideo.error?.message,
+            });
+          }
+          return false;
+        };
+        const updateHeroVideoSource = () => {
+          const nextSource = mobileViewport.matches ? mobileSource : desktopSource;
+          const sequence = ++heroLoadSequence;
+          void loadHeroVideoWithRetry(nextSource, sequence).then(() => {
+            if (sequence !== heroLoadSequence || heroLoadCancelled) return;
+            heroVideoReady = true;
+            hideLoaderWhenReady();
+          });
+        };
+        mobileViewport.addEventListener("change", updateHeroVideoSource);
+        updateHeroVideoSource();
+        removeHeroViewportListener = () => {
+          heroLoadCancelled = true;
+          mobileViewport.removeEventListener("change", updateHeroVideoSource);
+        };
+      } else {
+        heroVideoReady = true;
+      }
 
       childDocument.documentElement.lang = "es";
       childDocument.querySelectorAll("#__framer-badge-container, #__framer-editorbar-container, #__framer-editorbar")
@@ -353,22 +591,29 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       window.addEventListener("scroll", syncFrameScroll, { passive: true });
       resizeFrame();
 
-      // El iframe cargo, pero Framer aun esta hidratando (carga ~3.2MB de modulos .mjs).
-      // Esperar a que document.readyState sea "complete" DENTRO del iframe para ocultar
-      // el loader; si ya lo esta, hideLoaderAfterMinimum() se programa de una.
+      // Esperar recursos iniciales del iframe y una primera imagen de video decodificada.
+      const markIframeLoaded = () => {
+        iframeLoaded = true;
+        hideLoaderWhenReady();
+      };
       if (childDocument.readyState === "complete") {
-        hideLoaderAfterMinimum();
+        markIframeLoaded();
       } else {
         childDocument.addEventListener("readystatechange", function onReady() {
           if (childDocument.readyState === "complete") {
             childDocument.removeEventListener("readystatechange", onReady);
-            hideLoaderAfterMinimum();
+            markIframeLoaded();
           }
         });
       }
 
       cleanupFrame = () => {
+        removeHeroViewportListener?.();
         window.clearInterval(countdownTimer);
+        if (timelineLottieTimer !== undefined) {
+          window.clearInterval(timelineLottieTimer);
+          timelineLottieTimer = undefined;
+        }
         flipCardMutationObserver.disconnect();
         flipCardTimers.forEach((timer) => window.clearTimeout(timer));
         flipHintRemovalTimers.forEach((timer) => window.clearTimeout(timer));
@@ -394,7 +639,9 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       frame.removeEventListener("load", handleLoad);
       window.clearTimeout(preloadTimeout);
       window.clearTimeout(fallbackTimeout);
+      if (timelineLottieTimer !== undefined) window.clearInterval(timelineLottieTimer);
       cleanupFrame?.();
+      document.documentElement.classList.remove("home-scrollbar-hidden");
     };
   }, []);
 
@@ -418,6 +665,32 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
         className="fixed inset-x-0 top-0 z-40 block w-full border-0"
         style={{ height: "100vh" }}
       />
+      <audio
+        ref={musicRef}
+        src={assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4")}
+        preload="none"
+        loop
+        onPlay={() => setIsMusicPlaying(true)}
+        onPause={() => setIsMusicPlaying(false)}
+        onError={() => {
+          setIsMusicPlaying(false);
+          setMusicPlaybackError(true);
+          console.error("[home] No se pudo cargar la pista de audio del video del hero.", {
+            src: musicRef.current?.currentSrc,
+            mediaError: musicRef.current?.error?.message,
+          });
+        }}
+      />
+      <button
+        type="button"
+        className="site-music-button"
+        onClick={() => void toggleMusic()}
+        aria-label={musicPlaybackError ? "No se pudo cargar la música; intentar reproducir" : isMusicPlaying ? "Pausar música" : "Reproducir música"}
+        aria-pressed={isMusicPlaying}
+        title={musicPlaybackError ? "No se pudo cargar la música; vuelve a tocar para intentar" : isMusicPlaying ? "Pausar música" : "Reproducir música"}
+      >
+        {isMusicPlaying ? <Pause aria-hidden="true" /> : <Music2 aria-hidden="true" />}
+      </button>
     </div>
   );
 };

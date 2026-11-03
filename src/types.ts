@@ -13,7 +13,7 @@ export interface SimulatedEmail {
 
 export interface Guest {
   name: string;
-  isAttending: boolean;
+  isAttending: boolean | null;
   dietaryRestrictions: string; // 'none' | 'celiac' | 'vegan' | 'vegetarian' | 'allergy' | string
   notes?: string;
   needsTransport?: boolean;
