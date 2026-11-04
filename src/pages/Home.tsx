@@ -433,7 +433,37 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
 
       childDocument.addEventListener("click", handleClick, true);
 
-      const replaceWithGif = (selector: string, source: string, replaceVideo = false) => {
+      const responsiveWeddingPhotos: Record<string, readonly number[]> = {
+        "e46xCRfHepgef7YkuKzfZPZnCDY.jpg": [480, 768, 1280],
+        "QAKwxgTNTfzEKEe982NwhbBNEgU.jpg": [480, 768, 1280],
+        "CHtE3OgJcP9n0TFXZFlZ26TPQo.jpg": [480, 768, 1280],
+      };
+      const weddingPhotoSizes = "(max-width: 809.98px) 90vw, (max-width: 1199px) 45vw, 600px";
+      const applyResponsiveWeddingPhotos = () => {
+        childDocument.querySelectorAll<HTMLImageElement>("img[src]").forEach((image) => {
+          const source = image.getAttribute("src") || "";
+          const filename = source.split(/[?#]/, 1)[0].split("/").pop() || "";
+          const widths = responsiveWeddingPhotos[filename];
+          if (!widths) return;
+
+          const srcset = widths
+            .map((width) => {
+              const variant = filename.replace(/\.jpg$/, `-${width}.jpg`);
+              return `${assetUrl(`/assets/images/${variant}`)} ${width}w`;
+            })
+            .join(", ");
+          if (image.getAttribute("srcset") !== srcset) image.setAttribute("srcset", srcset);
+          if (image.getAttribute("sizes") !== weddingPhotoSizes) image.setAttribute("sizes", weddingPhotoSizes);
+        });
+      };
+
+      const replaceWithGif = (
+        selector: string,
+        source: string,
+        srcset: string,
+        sizes: string,
+        replaceVideo = false
+      ) => {
         childDocument.querySelectorAll<HTMLElement>(selector).forEach((container) => {
           let image = container.querySelector("img") as HTMLImageElement | null;
           const video = replaceVideo ? container.querySelector("video") as HTMLVideoElement | null : null;
@@ -446,21 +476,37 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
           }
 
           if (!image) return;
-          image.removeAttribute("srcset");
-          image.removeAttribute("sizes");
-          image.loading = "eager";
+          image.loading = "lazy";
+          image.decoding = "async";
           if (image.getAttribute("src") !== source) image.setAttribute("src", source);
+          if (image.getAttribute("srcset") !== srcset) image.setAttribute("srcset", srcset);
+          if (image.getAttribute("sizes") !== sizes) image.setAttribute("sizes", sizes);
         });
       };
+      const gifCandidates = (filename: string, widths: readonly number[]) =>
+        widths
+          .map((width) => {
+            const path = `/assets/images/${filename}-${width}.gif`;
+            return `${encodeURI(assetUrl(path))}?v=optimized-1 ${width}w`;
+          })
+          .join(", ");
+      const mobileGifViewport = childWindow.matchMedia("(max-width: 809.98px)").matches;
+      const coupleGifFilename = "Couple_dancing_in_red_ink_20261024202145_alpha (1)";
+      const walkingGifFilename = "Characters_walking_with_dog_20261024202041_alpha";
       const applyWeddingGifs = () => {
+        applyResponsiveWeddingPhotos();
         replaceWithGif(
           ".framer-a4ob5c-container",
-          assetUrl("/assets/images/Couple_dancing_in_red_ink_20261024202145_alpha (1).gif") + "?v=20261027-3",
+          `${encodeURI(assetUrl(`/assets/images/${coupleGifFilename}-${mobileGifViewport ? 200 : 560}.gif`))}?v=optimized-1`,
+          gifCandidates(coupleGifFilename, [200, 400, 560]),
+          "200px",
           true
         );
         replaceWithGif(
           ".framer-11aifpr",
-          assetUrl("/assets/images/Characters_walking_with_dog_20261024202041_alpha.gif") + "?v=20261027-3"
+          `${assetUrl(`/assets/images/${walkingGifFilename}-${mobileGifViewport ? 270 : 780}.gif`)}?v=optimized-1`,
+          gifCandidates(walkingGifFilename, [270, 387, 540, 780]),
+          "(max-width: 809.98px) 269px, 387px"
         );
       };
       const weddingGifObserver = new MutationObserver(applyWeddingGifs);
