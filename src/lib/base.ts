@@ -14,6 +14,21 @@
 
 const trimTrailing = (s: string) => s.replace(/\/+$/, "");
 
+export type HeroDevice = "mobile" | "desktop";
+
+declare global {
+  interface Window {
+    __BODA_HERO_DEVICE?: HeroDevice;
+  }
+}
+
+/** Returns the profile validated by the synchronous bootstrap before app assets load. */
+export function resolveHeroDevice(): HeroDevice {
+  const device = window.__BODA_HERO_DEVICE;
+  if (device === "mobile" || device === "desktop") return device;
+  throw new Error("[device] No se validó el perfil del dispositivo antes de iniciar la app.");
+}
+
 /** Base pública de la app, siempre con barra inicial y final. Ej: '/' o '/boda/' */
 export function publicBase(): string {
   const raw = (import.meta.env.BASE_URL as string | undefined) || "/";
@@ -165,21 +180,6 @@ export function assetUrl(path: string): string {
 }
 
 /** URL de la home de Framer (iframe) conservando su cache-buster. */
-export function framerHomeUrl(): string {
-  return assetUrl("/framer-home.html") + "?revision=20261101-external-links-newtab";
-}
-
-/**
- * Reescribe URLs de recursos locales que viven DENTRO de la página iframeada
- * (public/framer-home.html usa rutas absolutas "/assets/..."). En una
- * subcarpeta esas rutas apuntarían fuera de la app, así que se re-ubican a la
- * base de la app. Las externas (https://, data:, //cdn) se dejan intactas.
- */
-export function rewriteLocalAssetUrl(src: string): string {
-  if (!src) return src;
-  if (/^(https?:|data:|blob:|\/\/|#)/i.test(src)) return src;
-  if (src.startsWith("/")) return assetUrl(src);
-  // relativas ("assets/images/x.png"): resolver contra la carpeta de la app,
-  // ya que framer-home.html se sirve desde ahí.
-  return publicBase() + src.replace(/^\.?\//, "");
+export function framerHomeUrl(device: HeroDevice): string {
+  return `${assetUrl("/framer-home.html")}?revision=20261104-device-1100-touch-profile-2&device=${device}`;
 }

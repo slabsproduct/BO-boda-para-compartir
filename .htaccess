@@ -5,21 +5,29 @@
 
 RewriteEngine On
 
-# 1) Todas las llamadas a /api/* se resuelven contra api.php conservando la
-#    sub-ruta (/api/rsvp/CODE -> api.php/rsvp/CODE vía PATH_INFO)
-RewriteCond %{REQUEST_URI} ^/api/
+# Para activar avisos de RSVP por Brevo, configura esta variable solo en el hosting:
+# SetEnv BODA_BREVO_API_KEY "TU_API_KEY_V3_DE_BREVO"
+# No agregues la clave real al repositorio ni a una copia local que vayas a publicar.
+
+# 1) Las llamadas a /api/* se resuelven contra api.php conservando la sub-ruta.
+#    La regla es relativa al directorio de instalación, también en subcarpetas.
 RewriteRule ^api/(.*)$ api.php/$1 [QSA,L]
 
-# 2) SPA: cualquier otra ruta que no sea archivo/carpeta real sirve index.html
+# 2) La carpeta de datos y sus archivos temporales nunca se sirven por HTTP.
+RewriteRule ^data(?:/|$) - [F,NC,L]
+
+# 3) SPA: cualquier otra ruta que no sea archivo/carpeta real sirve index.html
 #    (para que /rsvp/MARISIMON y /admin funcionen con recarga directa)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule . index.html [L]
 
-# 3) Protección de la base de datos: no exponer los JSON por HTTP (cualquier carpeta)
-<FilesMatch "^(db|emails)\.json$">
+# No publicar bundles de servidor ni source maps si se sube todo dist/.
+<FilesMatch "\.(cjs|map)$">
   Require all denied
 </FilesMatch>
 
-# Bloqueo del directorio data/ (donde api.php guarda db.json) vía HTTP
-RedirectMatch 404 ^/data/
+# MIME types de video: algunos cPanel viejos no sirven .webm con el type correcto
+# y Safari/iOS rechaza la reproduccion si llega como application/octet-stream.
+AddType video/webm .webm
+AddType video/mp4 .mp4

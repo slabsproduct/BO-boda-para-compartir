@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Key,
@@ -39,10 +40,11 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [notificationWarning, setNotificationWarning] = useState<string | null>(null);
 
   // Form states (managed locally once invitation is loaded)
   const [guestsState, setGuestsState] = useState<Guest[]>([]);
-  const [generalStatus, setGeneralStatus] = useState<'confirmed' | 'declined'>('confirmed');
+  const [generalStatus, setGeneralStatus] = useState<'pending' | 'confirmed' | 'declined'>('pending');
   const [youtubeEmail, setYoutubeEmail] = useState("");
 
   // Auto-validate if initialCode was passed
@@ -53,6 +55,7 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
   }, [initialCode]);
 
   const executeValidateCode = async (codeToValidate: string) => {
+    if (loading) return;
     if (!codeToValidate) {
       setErrorMessage("Por favor, ingresá un código.");
       return;
@@ -61,14 +64,23 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
     setLoading(true);
     setErrorMessage(null);
 
+    await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()));
+
     try {
       const pair = apiUrlPair(`rsvp/${encodeURIComponent(codeToValidate)}`);
       const data = await fetchJsonWithFallback<any>(pair.primary, pair.fallback);
 
       if (data.success) {
         setInvitation(data.invitation);
-        setGuestsState(data.invitation.guests || []);
-        setGeneralStatus(data.invitation.status === 'declined' ? 'declined' : 'confirmed');
+        setGuestsState((data.invitation.guests || []).map((guest: Guest) => ({
+          ...guest,
+          isAttending: data.invitation.status === 'pending'
+            ? null
+            : data.invitation.status === 'declined'
+            ? false
+            : guest.isAttending ?? null
+        })));
+        setGeneralStatus(data.invitation.status);
         setYoutubeEmail(data.invitation.youtubeEmail || "");
         setStep('form');
       } else {
@@ -96,14 +108,23 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
   const handleSubmitRsvp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!invitation) return;
+    if (generalStatus === 'pending') {
+      setErrorMessage("Seleccioná si asistirán o no antes de continuar.");
+      return;
+    }
+    if (generalStatus === 'confirmed' && guestsState.some(guest => guest.isAttending === null)) {
+      setErrorMessage("Seleccioná Sí o No para cada invitado antes de enviar la confirmación.");
+      return;
+    }
 
     setIsSubmitting(true);
     setErrorMessage(null);
+    setNotificationWarning(null);
 
     // If generalStatus is declined, set all guests to isAttending: false
-    const finalGuests = guestsState.map(g => ({
-      ...g,
-      isAttending: generalStatus === 'declined' ? false : g.isAttending
+    const finalGuests = guestsState.map(({ transportLocation: _transportLocation, ...guest }) => ({
+      ...guest,
+      isAttending: generalStatus === 'declined' ? false : guest.isAttending
     }));
 
     try {
@@ -123,6 +144,13 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
 
       if (response.ok && data.success) {
         setInvitation(data.invitation);
+        if (data.notification && data.notification.sent === false) {
+          setNotificationWarning(
+            data.notification.reason === "not_configured"
+              ? "Tu respuesta quedó guardada, pero todavía falta configurar el aviso por email a los organizadores."
+              : "Tu respuesta quedó guardada, pero no pudimos enviar el aviso por email a los organizadores. No hace falta que vuelvas a enviarla."
+          );
+        }
         setStep('success');
       } else {
         setErrorMessage(data.error || "Ocurrió un error al guardar tu confirmación.");
@@ -165,12 +193,14 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
     URL.revokeObjectURL(url);
   };
 
-  // Sample codes to ease demo testing
-  const demoCodes = ["MARISIMON", "MAALWINES", "FAMILIA2026", "MILULOVER", "INVITADO123"];
+  const demoCode = "INVITADO6";
   const transportReservationCount = guestsState.filter(guest => guest.isAttending && guest.needsTransport).length;
 
   return (
-    <div className="py-12 md:py-20 px-4 relative flex items-center justify-center overflow-hidden">
+    <div
+      className="rsvp-page py-5 sm:py-12 md:py-20 px-2 sm:px-4 relative flex items-center justify-center overflow-hidden"
+      aria-busy={loading}
+    >
       <AnimatePresence mode="wait">
         
         {/* STEP 1: AUTHENTICATION VIA CODE (HOME / MAIN ACCESS) */}
@@ -181,7 +211,7 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
             transition={{ duration: 0.35 }}
-            className="w-full max-w-lg bg-white/95 backdrop-blur-xs p-8 md:p-12 rounded-3xl border border-[#363B1F]/15 shadow-[0_12px_45px_rgba(54,59,31,0.06)] text-center space-y-8 relative z-10"
+            className="rsvp-auth-card w-full max-w-lg bg-white/95 backdrop-blur-xs p-4 sm:p-8 md:p-12 rounded-3xl border border-[#363B1F]/15 shadow-[0_12px_45px_rgba(54,59,31,0.06)] text-center space-y-6 sm:space-y-8 relative z-10"
           >
             {/* Header info */}
             <div className="space-y-4">
@@ -198,7 +228,7 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
                 Confirmar Asistencia
               </h1>
               
-              <p className="text-xs sm:text-sm text-[#626262] leading-relaxed font-manrope max-w-sm mx-auto">
+              <p className="rsvp-intro text-xs sm:text-sm text-[#626262] leading-relaxed font-manrope max-w-sm mx-auto text-center">
                 Ingresá el código de invitación que recibiste en tu tarjeta para ver tus pases reservados y personalizar los detalles de tu asistencia.
               </p>
             </div>
@@ -263,21 +293,16 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
               <span className="text-[10px] font-mono text-[#626262] uppercase tracking-wider block">
                 ¿Querés probar con un código de demostración?
               </span>
-              <div className="flex flex-wrap justify-center gap-1.5">
-                {demoCodes.map((code) => (
-                  <button
-                    key={code}
-                    type="button"
-                    onClick={() => {
-                      setCodeInput(code);
-                      executeValidateCode(code);
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-[#FAF6F2] hover:bg-[#F1EBE3] border border-[#363B1F]/15 text-[#363B1F] text-[11px] font-mono tracking-wider transition-colors cursor-pointer"
-                  >
-                    {code}
-                  </button>
-                ))}
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setCodeInput(demoCode);
+                  executeValidateCode(demoCode);
+                }}
+                className="px-4 py-2 rounded-full bg-[#FAF6F2] hover:bg-[#F1EBE3] border border-[#363B1F]/15 text-[#363B1F] text-xs font-mono tracking-wider transition-colors cursor-pointer"
+              >
+                Invitado de prueba
+              </button>
             </div>
 
             {/* WhatsApp button for guests */}
@@ -303,7 +328,7 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -15 }}
             transition={{ duration: 0.35 }}
-            className="w-full max-w-2xl bg-white/95 backdrop-blur-xs p-6 md:p-10 rounded-3xl border border-[#363B1F]/15 shadow-[0_12px_45px_rgba(54,59,31,0.06)] relative z-10"
+            className="rsvp-form-card w-full max-w-2xl bg-white/95 backdrop-blur-xs p-6 md:p-10 rounded-3xl border border-[#363B1F]/15 shadow-[0_12px_45px_rgba(54,59,31,0.06)] relative z-10"
           >
             {/* Header info */}
             <div className="border-b border-[#363B1F]/10 pb-6 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -349,30 +374,44 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
                   </h4>
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setGeneralStatus('confirmed')}
-                    className={`py-3.5 px-4 rounded-xl font-manrope font-semibold text-xs sm:text-sm border transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                      generalStatus === 'confirmed'
-                        ? 'bg-[#363B1F] border-[#363B1F] text-white shadow-sm ring-2 ring-[#363B1F]/30'
-                        : 'bg-white border-[#363B1F]/15 text-[#363B1F] hover:bg-white/80'
-                    }`}
-                  >
-                    <span>🎉</span> Asistiremos con gusto
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setGeneralStatus('declined')}
-                    className={`py-3.5 px-4 rounded-xl font-manrope font-semibold text-xs sm:text-sm border transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                      generalStatus === 'declined'
-                        ? 'bg-[#6E0D23] border-[#6E0D23] text-white shadow-sm ring-2 ring-[#6E0D23]/30'
-                        : 'bg-white border-[#363B1F]/15 text-[#363B1F] hover:bg-white/80'
-                    }`}
-                  >
-                    <span>😔</span> No podremos asistir
-                  </button>
-                </div>
+                <fieldset className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <legend className="sr-only">Seleccioná si asistirán a la boda</legend>
+                  <label className={`py-3.5 px-4 rounded-xl font-manrope font-semibold text-xs sm:text-sm border transition-all cursor-pointer flex items-center gap-3 ${
+                    generalStatus === 'confirmed'
+                      ? 'bg-emerald-50 border-emerald-700 text-emerald-900 shadow-sm ring-2 ring-emerald-700/20'
+                      : 'bg-white border-[#363B1F]/15 text-[#363B1F] hover:bg-white/80'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="general-attendance"
+                      value="confirmed"
+                      checked={generalStatus === 'confirmed'}
+                      onChange={() => setGeneralStatus('confirmed')}
+                      className="w-5 h-5 shrink-0 accent-emerald-700"
+                    />
+                    <span><strong>Sí, asistiré</strong><span className="block text-[11px] font-normal opacity-80">Confirmar asistencia</span></span>
+                  </label>
+                  <label className={`py-3.5 px-4 rounded-xl font-manrope font-semibold text-xs sm:text-sm border transition-all cursor-pointer flex items-center gap-3 ${
+                    generalStatus === 'declined'
+                      ? 'bg-rose-50 border-rose-700 text-rose-900 shadow-sm ring-2 ring-rose-700/20'
+                      : 'bg-white border-[#363B1F]/15 text-[#363B1F] hover:bg-white/80'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="general-attendance"
+                      value="declined"
+                      checked={generalStatus === 'declined'}
+                      onChange={() => setGeneralStatus('declined')}
+                      className="w-5 h-5 shrink-0 accent-rose-700"
+                    />
+                    <span><strong>No, no asistiré</strong><span className="block text-[11px] font-normal opacity-80">Rechazar invitación</span></span>
+                  </label>
+                  {generalStatus === 'pending' && (
+                    <p className="sm:col-span-2 text-xs text-amber-800" role="status">
+                      Elegí una opción para continuar. Tu respuesta todavía está pendiente.
+                    </p>
+                  )}
+                </fieldset>
               </div>
 
               {/* Dynamic Individual Guests Form */}
@@ -382,7 +421,7 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
                     <h3 className="font-serif font-bold text-lg text-[#363B1F] flex items-center gap-2">
                       <Users className="w-4 h-4 text-[#6E0D23]" /> Detalle de Cada Asistente ({guestsState.length})
                     </h3>
-                    <span className="text-[11px] font-mono text-[#626262]">Completá nombres y preferencias</span>
+                    <span className="text-[11px] font-mono text-[#626262]">Revisá asistencia y preferencias</span>
                   </div>
 
                   {guestsState.map((guest, idx) => (
@@ -394,32 +433,58 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
                         {/* Guest name input */}
                         <div className="w-full sm:max-w-xs space-y-1">
                           <label className="text-[10px] font-mono text-[#626262] uppercase font-bold flex items-center gap-1">
-                            Pase {idx + 1} de {invitation.passes}
+                            Pase {idx + 1} de {invitation.passes} · Nombre asignado
                           </label>
                           <input
                             type="text"
-                            required={guest.isAttending}
+                            required={guest.isAttending === true}
                             value={guest.name}
-                            onChange={(e) => handleGuestFieldChange(idx, "name", e.target.value)}
-                            className="w-full px-3.5 py-2.5 bg-white border border-[#363B1F]/20 rounded-xl text-sm font-manrope focus:outline-none focus:border-[#363B1F] focus:ring-1 focus:ring-[#363B1F]"
+                            readOnly
+                            aria-readonly="true"
+                            className="w-full px-3.5 py-2.5 bg-[#FAF6F2] border border-[#363B1F]/20 rounded-xl text-sm font-manrope text-[#626262] cursor-default"
                             placeholder="Nombre y Apellido completo"
                           />
                         </div>
 
-                        {/* Individual attendance checkbox toggle */}
-                        <div className="flex items-center gap-2 pt-2 sm:pt-0">
-                          <button
-                            type="button"
-                            onClick={() => handleGuestFieldChange(idx, "isAttending", !guest.isAttending)}
-                            className={`px-3.5 py-2 rounded-xl text-xs font-mono uppercase tracking-wide border font-bold transition-all cursor-pointer ${
-                              guest.isAttending
-                                ? 'bg-emerald-800 text-white border-emerald-800 shadow-xs'
-                                : 'bg-white text-[#626262] border-[#363B1F]/20 hover:bg-[#FAF6F2]'
-                            }`}
-                          >
-                            {guest.isAttending ? "✓ CONFIRMA ASISTENCIA" : "✗ NO ASISTE"}
-                          </button>
-                        </div>
+                        <fieldset className="flex flex-col gap-2 pt-2 sm:pt-0">
+                          <legend className="text-[10px] font-mono uppercase tracking-wider text-[#626262] font-bold">
+                            ¿Asiste esta persona?
+                          </legend>
+                          <div className="flex flex-wrap gap-2">
+                            <label className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${
+                              guest.isAttending === true
+                                ? 'bg-emerald-50 text-emerald-900 border-emerald-700 ring-1 ring-emerald-700/20'
+                                : 'bg-white text-[#363B1F] border-[#363B1F]/20 hover:bg-emerald-50/50'
+                            }`}>
+                              <input
+                                type="radio"
+                                name={`guest-attendance-${idx}`}
+                                value="yes"
+                                checked={guest.isAttending === true}
+                                required
+                                onChange={() => handleGuestFieldChange(idx, "isAttending", true)}
+                                className="w-4 h-4 accent-emerald-700"
+                              />
+                              Sí, asiste
+                            </label>
+                            <label className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${
+                              guest.isAttending === false
+                                ? 'bg-rose-50 text-rose-900 border-rose-700 ring-1 ring-rose-700/20'
+                                : 'bg-white text-[#363B1F] border-[#363B1F]/20 hover:bg-rose-50/50'
+                            }`}>
+                              <input
+                                type="radio"
+                                name={`guest-attendance-${idx}`}
+                                value="no"
+                                checked={guest.isAttending === false}
+                                required
+                                onChange={() => handleGuestFieldChange(idx, "isAttending", false)}
+                                className="w-4 h-4 accent-rose-700"
+                              />
+                              No asiste
+                            </label>
+                          </div>
+                        </fieldset>
                       </div>
 
                       {/* Guest preferences (only visible if guest is attending) */}
@@ -466,60 +531,14 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
                                 checked={!!guest.needsTransport}
                                 onChange={(e) => {
                                   handleGuestFieldChange(idx, "needsTransport", e.target.checked);
-                                  if (!e.target.checked) {
-                                    handleGuestFieldChange(idx, "transportLocation", "");
-                                  } else {
-                                    handleGuestFieldChange(idx, "transportLocation", "Mendoza Centro (Plaza Independencia)");
-                                  }
+                                  handleGuestFieldChange(idx, "transportLocation", "");
                                 }}
                                 className="w-4 h-4 rounded text-[#6E0D23] focus:ring-[#6E0D23] border-[#363B1F]/30 accent-[#6E0D23] cursor-pointer"
                               />
                               <span className="text-xs font-manrope font-bold text-[#363B1F] flex items-center gap-1.5">
-                                <Bus className="w-3.5 h-3.5 text-[#6E0D23]" /> ¿Necesitás traslado oficial de la boda hasta Potrerillos?
+                                <Bus className="w-3.5 h-3.5 text-[#6E0D23]" /> ¿Necesitás transporte desde la boda en Potrerillos hasta Mendoza Capital?
                               </span>
                             </label>
-
-                            <AnimatePresence>
-                              {guest.needsTransport && (
-                                <motion.div
-                                  initial={{ opacity: 0, height: 0 }}
-                                  animate={{ opacity: 1, height: "auto" }}
-                                  exit={{ opacity: 0, height: 0 }}
-                                  transition={{ duration: 0.2 }}
-                                  className="overflow-hidden space-y-2 pl-6"
-                                >
-                                  <p className="text-[10px] font-mono text-[#626262] uppercase font-bold">
-                                    Punto de encuentro para salida y regreso:
-                                  </p>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleGuestFieldChange(idx, "transportLocation", "Mendoza Centro (Plaza Independencia)")}
-                                      className={`px-3.5 py-2.5 rounded-xl text-xs font-mono tracking-wider uppercase border transition-all text-left flex items-center justify-between cursor-pointer ${
-                                        guest.transportLocation === "Mendoza Centro (Plaza Independencia)"
-                                          ? "bg-[#363B1F] border-[#363B1F] text-white shadow-xs"
-                                          : "bg-white border-[#363B1F]/15 text-[#363B1F] hover:bg-[#FAF6F2]"
-                                      }`}
-                                    >
-                                      <span>Mendoza Centro</span>
-                                      {guest.transportLocation === "Mendoza Centro (Plaza Independencia)" && <span>✓</span>}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleGuestFieldChange(idx, "transportLocation", "Chacras de Coria")}
-                                      className={`px-3.5 py-2.5 rounded-xl text-xs font-mono tracking-wider uppercase border transition-all text-left flex items-center justify-between cursor-pointer ${
-                                        guest.transportLocation === "Chacras de Coria"
-                                          ? "bg-[#363B1F] border-[#363B1F] text-white shadow-xs"
-                                          : "bg-white border-[#363B1F]/15 text-[#363B1F] hover:bg-[#FAF6F2]"
-                                      }`}
-                                    >
-                                      <span>Chacras de Coria</span>
-                                      {guest.transportLocation === "Chacras de Coria" && <span>✓</span>}
-                                    </button>
-                                  </div>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
                           </div>
                         </div>
                       )}
@@ -576,7 +595,7 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
                 <button
                   type="submit"
                   id="btn-submit-rsvp"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || generalStatus === 'pending'}
                   className="w-full sm:w-auto px-8 py-3.5 bg-[#363B1F] hover:bg-[#272B15] text-[#FAF6F2] font-manrope font-bold text-xs sm:text-sm tracking-wider uppercase rounded-full shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
                 >
                   {isSubmitting ? (
@@ -607,7 +626,7 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35 }}
-            className="w-full max-w-lg bg-white/95 backdrop-blur-xs p-8 md:p-12 rounded-3xl border border-[#363B1F]/15 shadow-[0_12px_45px_rgba(54,59,31,0.06)] text-center space-y-6 relative z-10"
+            className="rsvp-success-card w-full max-w-lg bg-white/95 backdrop-blur-xs p-8 md:p-12 rounded-3xl border border-[#363B1F]/15 shadow-[0_12px_45px_rgba(54,59,31,0.06)] text-center space-y-6 relative z-10"
           >
             <div className="w-16 h-16 bg-emerald-50 text-emerald-700 rounded-full flex items-center justify-center mx-auto border border-emerald-200">
               <CheckCircle className="w-9 h-9" />
@@ -625,6 +644,11 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
                   ? "Tu confirmación ha sido guardada en nuestra base de datos oficial. Nos alegra inmensamente que nos acompañes en este día tan especial."
                   : "Tus pases quedaron liberados y guardamos tu respuesta. ¡Nos encantará que nos acompañes online! Te enviaremos el enlace del live al correo de YouTube indicado."}
               </p>
+              {notificationWarning && (
+                <p role="status" className="mx-auto max-w-sm rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-left text-xs text-amber-900">
+                  {notificationWarning}
+                </p>
+              )}
             </div>
 
             {/* Quick summary card */}
@@ -648,7 +672,7 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
                 <p className="text-emerald-700 font-semibold flex items-center gap-1">
                   <Bus className="w-3.5 h-3.5" />
                   {transportReservationCount > 0
-                    ? `Transporte: ${transportReservationCount} asiento${transportReservationCount === 1 ? "" : "s"} reservado${transportReservationCount === 1 ? "" : "s"} · X$ por persona.`
+                      ? `Transporte: ${transportReservationCount} asiento${transportReservationCount === 1 ? "" : "s"} reservado${transportReservationCount === 1 ? "" : "s"}.`
                     : "Transporte: sin asientos reservados."}
                 </p>
               )}
@@ -690,6 +714,29 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
         )}
 
       </AnimatePresence>
+
+      {loading && createPortal(
+        <AnimatePresence>
+          <motion.div
+            role="status"
+            aria-live="polite"
+            aria-label="Cargando invitación"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#FAF6F2]/75 px-4 backdrop-blur-sm"
+          >
+            <div className="w-full max-w-sm rounded-3xl border border-[#363B1F]/15 bg-white p-8 text-center shadow-2xl">
+              <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full border-4 border-[#363B1F]/10 border-t-[#6E0D23] animate-spin" />
+              <h2 className="font-serif text-xl font-bold text-[#363B1F]">Buscando tu invitación</h2>
+              <p className="mt-2 text-sm text-[#626262]">
+                Estamos cargando los datos. Puede tardar unos segundos; por favor, no cierres esta página.
+              </p>
+            </div>
+          </motion.div>
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 };

@@ -1,39 +1,100 @@
 import React, { useEffect, useRef, useState } from "react";
-import { assetUrl, framerHomeUrl, rsvpViewUrl, rewriteLocalAssetUrl } from "../lib/base";
+import { Volume2, VolumeX } from "lucide-react";
+import {
+  assetUrl,
+  framerHomeUrl,
+  resolveHeroDevice,
+  rsvpViewUrl,
+} from "../lib/base";
 
 interface HomeProps {
   onRsvpClick: () => void;
-  onAdminClick?: () => void;
 }
 
-export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
+export const Home: React.FC<HomeProps> = ({ onRsvpClick }) => {
   const frameRef = useRef<HTMLIFrameElement>(null);
+  const heroVideoRef = useRef<HTMLVideoElement>(null);
+  const audioEnabledRef = useRef(false);
   const onRsvpClickRef = useRef(onRsvpClick);
+  const [heroDevice] = useState(resolveHeroDevice);
   const [frameHeight, setFrameHeight] = useState(() => window.innerHeight);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+  const [musicPlaybackError, setMusicPlaybackError] = useState(false);
   onRsvpClickRef.current = onRsvpClick;
+
+  const toggleMusic = async () => {
+    const video = heroVideoRef.current;
+    if (!video) return;
+    setMusicPlaybackError(false);
+    const enableAudio = video.muted;
+    video.muted = !enableAudio;
+    audioEnabledRef.current = enableAudio;
+    setIsMusicPlaying(enableAudio);
+    if (enableAudio && video.paused) {
+      try {
+        await video.play();
+      } catch (error) {
+        video.muted = true;
+        audioEnabledRef.current = false;
+        setIsMusicPlaying(false);
+        console.error("[home] No se pudo activar el audio sincronizado del video.", error);
+        setMusicPlaybackError(true);
+      }
+    }
+  };
 
   useEffect(() => {
     const frame = frameRef.current;
     if (!frame) return;
 
+    const frameDevice = new URL(frame.src, window.location.href).searchParams.get("device");
+    if (frameDevice !== "mobile" && frameDevice !== "desktop") {
+      throw new Error("[home] El iframe no recibió un perfil de dispositivo válido.");
+    }
+
+    document.documentElement.classList.add("home-scrollbar-hidden");
     const loadingStartedAt = Date.now();
     let preloadTimeout: number | undefined;
     let fallbackTimeout: number | undefined;
+    let heroVideoStartTimeout: number | undefined;
+    let hydrationWaitDocument: Document | undefined;
+    let hydrationReadyListener: (() => void) | undefined;
     let cleanupFrame: (() => void) | undefined;
+    let refreshHeroVideoAfterLoader: (() => void) | undefined;
+    let iframeLoaded = false;
+    let hideLoaderScheduled = false;
+    let loaderFinished = false;
 
-    // El loader debe ocultarse solo cuando el iframe termino de CARGAR DE VERDAD
-    // (recursos + hidratacion de Framer), no por un cronometro fijo.
-    const hideLoaderAfterMinimum = () => {
-      if (preloadTimeout) return; // ya programado
-      const minimumLoadingTime = 1200;
-      const remainingLoadingTime = Math.max(0, minimumLoadingTime - (Date.now() - loadingStartedAt));
-      preloadTimeout = window.setTimeout(() => setIsLoading(false), remainingLoadingTime);
+    const finishLoading = () => {
+      if (loaderFinished) return;
+      loaderFinished = true;
+      setIsLoading(false);
+      startHeroVideoAfterLoader();
     };
 
-    // Red de seguridad: si el evento "load" nunca llega (cache buster, error de red,
-    // iframe bloqueado), ocultar el loader a los 8s para no tapar el sitio para siempre.
-    fallbackTimeout = window.setTimeout(hideLoaderAfterMinimum, 8000);
+    const startHeroVideoAfterLoader = () => {
+      window.clearTimeout(heroVideoStartTimeout);
+      heroVideoStartTimeout = window.setTimeout(() => {
+        refreshHeroVideoAfterLoader?.();
+      }, 400);
+    };
+
+    const hideLoaderWhenReady = () => {
+      if (!iframeLoaded || hideLoaderScheduled) return;
+      hideLoaderScheduled = true;
+      const minimumLoadingTime = 1800;
+      const remainingLoadingTime = Math.max(0, minimumLoadingTime - (Date.now() - loadingStartedAt));
+      preloadTimeout = window.setTimeout(() => {
+        window.clearTimeout(fallbackTimeout);
+        finishLoading();
+      }, remainingLoadingTime);
+    };
+
+    fallbackTimeout = window.setTimeout(() => {
+      console.warn("[home] Se agotó la espera máxima de carga; se ocultará el preloader.");
+      finishLoading();
+    }, 60000);
 
     const handleLoad = () => {
       const childDocument = frame.contentDocument;
@@ -42,7 +103,344 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       const childWindow = childDocument.defaultView;
       if (!childWindow) return;
 
+      if (childDocument.documentElement.dataset.framerHydrated !== "true") {
+        if (hydrationReadyListener) return;
+        hydrationWaitDocument = childDocument;
+        hydrationReadyListener = () => {
+          hydrationReadyListener = undefined;
+          hydrationWaitDocument = undefined;
+          handleLoad();
+        };
+        childDocument.addEventListener("framer:hydrated", hydrationReadyListener, { once: true });
+        return;
+      }
+
       cleanupFrame?.();
+
+      let scrollbarStyles = childDocument.querySelector<HTMLStyleElement>(
+        "#home-scrollbar-hidden-styles"
+      );
+      if (!scrollbarStyles) {
+        scrollbarStyles = childDocument.createElement("style");
+        scrollbarStyles.id = "home-scrollbar-hidden-styles";
+        scrollbarStyles.textContent = `
+          @media (min-width: 1101px) {
+            html, body { scrollbar-width: none !important; -ms-overflow-style: none !important; }
+            html::-webkit-scrollbar, body::-webkit-scrollbar { display: none !important; width: 0 !important; }
+          }
+        `;
+        childDocument.head.appendChild(scrollbarStyles);
+      }
+      let mobileContactStyles = childDocument.querySelector<HTMLStyleElement>(
+        "#home-mobile-contact-styles"
+      );
+      if (!mobileContactStyles) {
+        mobileContactStyles = childDocument.createElement("style");
+        mobileContactStyles.id = "home-mobile-contact-styles";
+        mobileContactStyles.textContent = `
+          #home-mobile-contact-section { display: none; }
+          @media (max-width: 1100px) {
+            #home-mobile-contact-section {
+              display: flex !important;
+              flex-direction: column;
+              align-items: center;
+              gap: 14px;
+              margin: 24px 20px 36px;
+              padding: 24px 18px;
+              border-radius: 20px;
+              background: #f1ebe3;
+              color: #363b1f;
+              text-align: center;
+            }
+            #home-mobile-contact-section p {
+              margin: 0;
+              font: 500 18px/1.35 Inter, sans-serif;
+            }
+            #home-mobile-contact-section a {
+              display: inline-flex;
+              min-height: 44px;
+              align-items: center;
+              justify-content: center;
+              padding: 0 22px;
+              border-radius: 999px;
+              background: #363b1f;
+              color: #fff;
+              font: 600 14px/1 Manrope, sans-serif;
+              text-decoration: none;
+            }
+          }
+        `;
+        childDocument.head.appendChild(mobileContactStyles);
+      }
+
+      const faqSection = childDocument.querySelector<HTMLElement>("#faq");
+      if (faqSection && !childDocument.querySelector("#home-mobile-contact-section")) {
+        const contactSection = childDocument.createElement("div");
+        contactSection.id = "home-mobile-contact-section";
+        const contactMessage = childDocument.createElement("p");
+        contactMessage.textContent = "¿Tienes más dudas?";
+        const contactButton = childDocument.createElement("a");
+        contactButton.href = `https://wa.me/5491176387793?text=${encodeURIComponent(
+          "Hola Mari y Simon tengo la siguiente duda."
+        )}`;
+        contactButton.target = "_blank";
+        contactButton.rel = "noopener noreferrer";
+        contactButton.textContent = "Contáctanos al WhatsApp";
+        contactSection.append(contactMessage, contactButton);
+        faqSection.appendChild(contactSection);
+      }
+      let lottieLoaderStyles = childDocument.querySelector<HTMLStyleElement>(
+        "#home-lottie-loader-styles"
+      );
+      if (!lottieLoaderStyles) {
+        lottieLoaderStyles = childDocument.createElement("style");
+        lottieLoaderStyles.id = "home-lottie-loader-styles";
+        lottieLoaderStyles.textContent = `
+          .home-lottie-loader {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: #363b1f;
+            background: rgba(250, 246, 242, 0.68);
+            font: 500 14px/1.3 Inter, sans-serif;
+            pointer-events: none;
+          }
+          .home-lottie-loader-spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid rgba(54, 59, 31, 0.2);
+            border-top-color: #6e0d23;
+            border-radius: 50%;
+            animation: home-lottie-loader-spin 800ms linear infinite;
+          }
+          @keyframes home-lottie-loader-spin {
+            to { transform: rotate(360deg); }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .home-lottie-loader-spinner { animation: none; }
+          }
+        `;
+        childDocument.head.appendChild(lottieLoaderStyles);
+      }
+      let removeHeroViewportListener: (() => void) | undefined;
+      const heroVideo = childDocument.querySelector<HTMLVideoElement>(
+        ".framer-15p17nr-container video"
+      );
+      if (heroVideo) {
+        heroVideoRef.current = heroVideo;
+        const desktopSource = `${assetUrl("/assets/misc/desktop-hero.mp4")}?v=20261104-desktop-12`;
+        const mobileSource = `${assetUrl("/assets/misc/mobile-hero.mp4")}?v=20261104-mobile-12`;
+        const selectedSource = frameDevice === "mobile" ? mobileSource : desktopSource;
+        let heroVideoStarted = false;
+        heroVideo.dataset.homeHeroDevice = frameDevice;
+        const videoContainer = heroVideo.parentElement;
+        if (!videoContainer) {
+          throw new Error("[home] No se encontró el contenedor del video del hero.");
+        }
+        videoContainer.style.position = "relative";
+        videoContainer.style.overflow = "hidden";
+
+        let responsiveStyles = childDocument.querySelector<HTMLStyleElement>(
+          "#home-responsive-hero-video-styles"
+        );
+        if (!responsiveStyles) {
+          responsiveStyles = childDocument.createElement("style");
+          responsiveStyles.id = "home-responsive-hero-video-styles";
+          responsiveStyles.textContent = `
+              @media (min-width: 1101px) {
+                .framer-oargH .framer-15p17nr-container video {
+                  -webkit-mask-image:
+                    linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 10px), transparent),
+                    linear-gradient(to bottom, transparent, #000 10px, #000 calc(100% - 10px), transparent);
+                  -webkit-mask-composite: source-in;
+                  mask-image:
+                    linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 10px), transparent),
+                    linear-gradient(to bottom, transparent, #000 10px, #000 calc(100% - 10px), transparent);
+                  mask-composite: intersect;
+                }
+              }
+              .home-mobile-hero-video .framer-ZMBes {
+                width: 100% !important;
+                overflow-x: clip;
+            }
+            .home-mobile-hero-video .framer-oargH .framer-n19xkw {
+              top: 100px !important;
+              bottom: auto !important;
+              left: 50% !important;
+              width: min(600px, calc(100% - 32px)) !important;
+              max-width: calc(100% - 32px) !important;
+              height: auto !important;
+              aspect-ratio: 1 / 1 !important;
+              transform: translateX(-50%) !important;
+              overflow: hidden;
+            }
+            .home-mobile-hero-video .framer-oargH .framer-15p17nr-container {
+              position: absolute !important;
+              inset: 0 !important;
+              width: 100% !important;
+              height: 100% !important;
+              aspect-ratio: 1 / 1 !important;
+            }
+            .home-mobile-hero-video .framer-oargH .framer-15p17nr-container video {
+              width: 100% !important;
+              height: 100% !important;
+              object-fit: contain !important;
+              object-position: center !important;
+              background: transparent !important;
+              -webkit-mask-image: linear-gradient(
+                to right,
+                transparent 0,
+                #000 4px,
+                #000 calc(100% - 4px),
+                transparent 100%
+              );
+              mask-image: linear-gradient(
+                to right,
+                transparent 0,
+                #000 4px,
+                #000 calc(100% - 4px),
+                transparent 100%
+              );
+            }
+          `;
+          childDocument.head.appendChild(responsiveStyles);
+        }
+
+        heroVideo.removeAttribute("src");
+        heroVideo.preload = "none";
+        heroVideo.load();
+        heroVideo.style.opacity = "0";
+        heroVideo.autoplay = true;
+        heroVideo.muted = true;
+        heroVideo.loop = true;
+        heroVideo.playsInline = true;
+        heroVideo.style.visibility = "visible";
+        heroVideo.style.zIndex = "1";
+        heroVideo.style.position = "relative";
+        heroVideo.style.transition = "opacity 450ms ease";
+        heroVideo.style.objectFit = "cover";
+        let heroLoadCancelled = false;
+        let heroVideoLoadTimeout: number | undefined;
+        let heroSourceAttempt = 0;
+        const isCurrentHeroSource = () => {
+          const expectedSource = heroVideo.dataset.homeHeroSource;
+          const currentSource = heroVideo.currentSrc || heroVideo.src;
+          if (!expectedSource || !currentSource) return false;
+          return new URL(currentSource).pathname ===
+            new URL(expectedSource, childDocument.baseURI).pathname;
+        };
+        const revealLoadedHeroVideo = () => {
+          if (
+            !heroLoadCancelled &&
+            isCurrentHeroSource() &&
+            heroVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+            heroVideo.videoWidth > 0 &&
+            heroVideo.videoHeight > 0
+          ) {
+            window.clearTimeout(heroVideoLoadTimeout);
+            heroVideo.style.opacity = "1";
+          }
+        };
+        const loadHeroVideoSource = (source: string, attempt: number) => {
+          window.clearTimeout(heroVideoLoadTimeout);
+          heroSourceAttempt = attempt;
+          heroVideo.style.opacity = "0";
+          heroVideo.pause();
+          heroVideo.removeAttribute("src");
+          heroVideo.load();
+          heroVideo.dataset.homeHeroSource = source;
+          heroVideo.preload = "auto";
+          heroVideo.removeAttribute("fetchpriority");
+          const requestUrl = new URL(source, childDocument.baseURI);
+          if (attempt > 0) requestUrl.searchParams.set("hero-retry", String(attempt));
+          heroVideo.src = requestUrl.href;
+          heroVideo.load();
+          heroVideoLoadTimeout = window.setTimeout(() => {
+            if (heroLoadCancelled || !isCurrentHeroSource()) return;
+            if (
+              heroVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+              heroVideo.videoWidth > 0 &&
+              heroVideo.videoHeight > 0
+            ) {
+              revealLoadedHeroVideo();
+              return;
+            }
+            handleHeroVideoFailure(source, attempt, "timeout");
+          }, frameDevice === "desktop" ? 20000 : 12000);
+          void heroVideo.play().catch((error: unknown) => {
+            if (!heroLoadCancelled && isCurrentHeroSource()) {
+              console.warn("[home] El navegador no inició la reproducción automática del video.", {
+                error,
+                src: heroVideo.currentSrc || heroVideo.src,
+              });
+            }
+          });
+        };
+        const handleHeroVideoFailure = (source: string, attempt: number, reason: string) => {
+          if (heroLoadCancelled || !isCurrentHeroSource()) return;
+          window.clearTimeout(heroVideoLoadTimeout);
+          if (attempt < 1) {
+            console.warn("[home] El video del hero no quedó listo; se reintentará una vez.", {
+              reason,
+              src: heroVideo.currentSrc || heroVideo.src,
+              mediaError: heroVideo.error?.message,
+            });
+            loadHeroVideoSource(source, attempt + 1);
+            return;
+          }
+          console.warn("[home] No se pudo cargar el video del hero tras un reintento.", {
+            reason,
+            src: heroVideo.currentSrc || heroVideo.src,
+            mediaError: heroVideo.error?.message,
+          });
+        };
+        const reportHeroVideoError = () => {
+          if (!heroLoadCancelled && isCurrentHeroSource()) {
+            const source = heroVideo.dataset.homeHeroSource;
+            if (source) handleHeroVideoFailure(source, heroSourceAttempt, "media-error");
+          }
+        };
+        heroVideo.addEventListener("loadeddata", revealLoadedHeroVideo);
+        heroVideo.addEventListener("canplay", revealLoadedHeroVideo);
+        heroVideo.addEventListener("playing", revealLoadedHeroVideo);
+        heroVideo.addEventListener("error", reportHeroVideoError);
+        const updateHeroVideoSource = () => {
+          const isMobile = frameDevice === "mobile";
+          childDocument.documentElement.classList.toggle("home-mobile-hero-video", isMobile);
+          const expectedPath = new URL(selectedSource, childDocument.baseURI).pathname;
+          const currentSource = heroVideo.currentSrc || heroVideo.src;
+          const currentPath = currentSource ? new URL(currentSource, childDocument.baseURI).pathname : "";
+          if (
+            heroVideoStarted &&
+            heroVideo.dataset.homeHeroSource === selectedSource &&
+            currentPath === expectedPath &&
+            !heroVideo.error
+          ) return;
+
+          heroVideoStarted = true;
+          heroVideo.muted = !audioEnabledRef.current;
+          delete heroVideo.dataset.homeHeroSource;
+          loadHeroVideoSource(selectedSource, 0);
+        };
+        refreshHeroVideoAfterLoader = () => {
+          updateHeroVideoSource();
+        };
+        if (loaderFinished) startHeroVideoAfterLoader();
+        removeHeroViewportListener = () => {
+          heroLoadCancelled = true;
+          window.clearTimeout(heroVideoLoadTimeout);
+          heroVideo.removeEventListener("loadeddata", revealLoadedHeroVideo);
+          heroVideo.removeEventListener("canplay", revealLoadedHeroVideo);
+          heroVideo.removeEventListener("playing", revealLoadedHeroVideo);
+          heroVideo.removeEventListener("error", reportHeroVideoError);
+          childDocument.documentElement.classList.remove("home-mobile-hero-video");
+        };
+      }
 
       childDocument.documentElement.lang = "es";
       childDocument.querySelectorAll("#__framer-badge-container, #__framer-editorbar-container, #__framer-editorbar")
@@ -86,7 +484,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
           0% { box-shadow: 0 0 0 0 rgba(110, 13, 35, 0.28); transform: scale(0.94); }
           70%, 100% { box-shadow: 0 0 0 10px rgba(110, 13, 35, 0); transform: scale(1); }
         }
-        @media (min-width: 810px) { .mobile-flip-hint { display: none !important; } }
+        @media (min-width: 1101px) { .mobile-flip-hint { display: none !important; } }
         @media (prefers-reduced-motion: reduce) {
           .mobile-flip-hint { transition: none; }
           .mobile-flip-hint-circle { animation: none; }
@@ -97,7 +495,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       const flipCardSelector = "#datos .framer-19orn2u-container, #datos .framer-18cyolp-container, #datos .framer-gvzoy3-container";
       const flipCardTimers = new Map<HTMLElement, number>();
       const flipHintRemovalTimers = new Set<number>();
-      const mobileViewport = childWindow.matchMedia("(max-width: 809.98px)");
+      const mobileViewport = childWindow.matchMedia("(max-width: 1100px)");
       const fadeOutFlipHint = (card: HTMLElement) => {
         const hint = card.querySelector<HTMLElement>(".mobile-flip-hint");
         if (!hint || hint.classList.contains("mobile-flip-hint-hidden")) return;
@@ -212,7 +610,37 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
 
       childDocument.addEventListener("click", handleClick, true);
 
-      const replaceWithGif = (selector: string, source: string, replaceVideo = false) => {
+      const responsiveWeddingPhotos: Record<string, readonly number[]> = {
+        "e46xCRfHepgef7YkuKzfZPZnCDY.jpg": [480, 768, 1280],
+        "QAKwxgTNTfzEKEe982NwhbBNEgU.jpg": [480, 768, 1280],
+        "CHtE3OgJcP9n0TFXZFlZ26TPQo.jpg": [480, 768, 1280],
+      };
+      const weddingPhotoSizes = "(max-width: 1100px) 90vw, (max-width: 1199px) 45vw, 600px";
+      const applyResponsiveWeddingPhotos = () => {
+        childDocument.querySelectorAll<HTMLImageElement>("img[src]").forEach((image) => {
+          const source = image.getAttribute("src") || "";
+          const filename = source.split(/[?#]/, 1)[0].split("/").pop() || "";
+          const widths = responsiveWeddingPhotos[filename];
+          if (!widths) return;
+
+          const srcset = widths
+            .map((width) => {
+              const variant = filename.replace(/\.jpg$/, `-${width}.jpg`);
+              return `${assetUrl(`/assets/images/${variant}`)} ${width}w`;
+            })
+            .join(", ");
+          if (image.getAttribute("srcset") !== srcset) image.setAttribute("srcset", srcset);
+          if (image.getAttribute("sizes") !== weddingPhotoSizes) image.setAttribute("sizes", weddingPhotoSizes);
+        });
+      };
+
+      const replaceWithGif = (
+        selector: string,
+        source: string,
+        srcset: string,
+        sizes: string,
+        replaceVideo = false
+      ) => {
         childDocument.querySelectorAll<HTMLElement>(selector).forEach((container) => {
           let image = container.querySelector("img") as HTMLImageElement | null;
           const video = replaceVideo ? container.querySelector("video") as HTMLVideoElement | null : null;
@@ -225,21 +653,37 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
           }
 
           if (!image) return;
-          image.removeAttribute("srcset");
-          image.removeAttribute("sizes");
-          image.loading = "eager";
+          image.loading = "lazy";
+          image.decoding = "async";
           if (image.getAttribute("src") !== source) image.setAttribute("src", source);
+          if (image.getAttribute("srcset") !== srcset) image.setAttribute("srcset", srcset);
+          if (image.getAttribute("sizes") !== sizes) image.setAttribute("sizes", sizes);
         });
       };
+      const gifCandidates = (filename: string, widths: readonly number[]) =>
+        widths
+          .map((width) => {
+            const path = `/assets/images/${filename}-${width}.gif`;
+            return `${encodeURI(assetUrl(path))}?v=optimized-1 ${width}w`;
+          })
+          .join(", ");
+      const mobileGifViewport = childWindow.matchMedia("(max-width: 1100px)").matches;
+      const coupleGifFilename = "Couple_dancing_in_red_ink_20261024202145_alpha (1)";
+      const walkingGifFilename = "Characters_walking_with_dog_20261024202041_alpha";
       const applyWeddingGifs = () => {
+        applyResponsiveWeddingPhotos();
         replaceWithGif(
           ".framer-a4ob5c-container",
-          assetUrl("/assets/images/Couple_dancing_in_red_ink_20261024202145_alpha (1).gif") + "?v=20261027-3",
+          `${encodeURI(assetUrl(`/assets/images/${coupleGifFilename}-${mobileGifViewport ? 200 : 560}.gif`))}?v=optimized-1`,
+          gifCandidates(coupleGifFilename, [200, 400, 560]),
+          "200px",
           true
         );
         replaceWithGif(
           ".framer-11aifpr",
-          assetUrl("/assets/images/Characters_walking_with_dog_20261024202041_alpha.gif") + "?v=20261027-3"
+          `${assetUrl(`/assets/images/${walkingGifFilename}-${mobileGifViewport ? 270 : 780}.gif`)}?v=optimized-1`,
+          gifCandidates(walkingGifFilename, [270, 387, 540, 780]),
+          "(max-width: 1100px) 269px, 387px"
         );
       };
       const weddingGifObserver = new MutationObserver(applyWeddingGifs);
@@ -328,21 +772,25 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       window.addEventListener("scroll", syncFrameScroll, { passive: true });
       resizeFrame();
 
-      // El iframe cargo, pero Framer aun esta hidratando (carga ~3.2MB de modulos .mjs).
-      // Esperar a que document.readyState sea "complete" DENTRO del iframe para ocultar
-      // el loader; si ya lo esta, hideLoaderAfterMinimum() se programa de una.
+      // Esperar el documento del iframe, pero no bloquear la página por el video.
+      const markIframeLoaded = () => {
+        iframeLoaded = true;
+        hideLoaderWhenReady();
+      };
       if (childDocument.readyState === "complete") {
-        hideLoaderAfterMinimum();
+        markIframeLoaded();
       } else {
         childDocument.addEventListener("readystatechange", function onReady() {
           if (childDocument.readyState === "complete") {
             childDocument.removeEventListener("readystatechange", onReady);
-            hideLoaderAfterMinimum();
+            markIframeLoaded();
           }
         });
       }
 
       cleanupFrame = () => {
+        removeHeroViewportListener?.();
+        if (heroVideoRef.current?.ownerDocument === childDocument) heroVideoRef.current = null;
         window.clearInterval(countdownTimer);
         flipCardMutationObserver.disconnect();
         flipCardTimers.forEach((timer) => window.clearTimeout(timer));
@@ -369,7 +817,13 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       frame.removeEventListener("load", handleLoad);
       window.clearTimeout(preloadTimeout);
       window.clearTimeout(fallbackTimeout);
+      window.clearTimeout(heroVideoStartTimeout);
+      if (hydrationReadyListener && hydrationWaitDocument) {
+        hydrationWaitDocument.removeEventListener("framer:hydrated", hydrationReadyListener);
+      }
       cleanupFrame?.();
+      refreshHeroVideoAfterLoader = undefined;
+      document.documentElement.classList.remove("home-scrollbar-hidden");
     };
   }, []);
 
@@ -388,11 +842,21 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       </div>
       <iframe
         ref={frameRef}
-        src={framerHomeUrl()}
+        src={framerHomeUrl(heroDevice)}
         title="Boda de Mari y Simón"
         className="fixed inset-x-0 top-0 z-40 block w-full border-0"
         style={{ height: "100vh" }}
       />
+      <button
+        type="button"
+        className="site-music-button"
+        onClick={() => void toggleMusic()}
+        aria-label={musicPlaybackError ? "No se pudo activar el audio; volver a intentar" : isMusicPlaying ? "Silenciar audio del video" : "Activar audio sincronizado del video"}
+        aria-pressed={isMusicPlaying}
+        title={musicPlaybackError ? "No se pudo activar el audio; vuelve a tocar para intentar" : isMusicPlaying ? "Silenciar audio del video" : "Activar audio sincronizado del video"}
+      >
+        {isMusicPlaying ? <Volume2 aria-hidden="true" /> : <VolumeX aria-hidden="true" />}
+      </button>
     </div>
   );
 };

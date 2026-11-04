@@ -28567,7 +28567,7 @@ var Kf,
         }
       }),
       $(tp, `_ModulePromise`, null),
-      $(tp, `_wasmURL`, `https://cdn.jsdelivr.net/npm/${$f}@${Qf}/dist/dotlottie-player.wasm`),
+      $(tp, `_wasmURL`, `assets/misc/dotlottie-player.wasm`),
       (np = class {
         constructor() {
           $(this, `_eventListeners`, new Map());
@@ -35445,6 +35445,228 @@ var Sp,
         `framer-dot-lottie-controls`
       )));
   });
+// Keep the initial video element identical to Framer's SSR markup; enhance WebM
+// with a canvas only after hydration so React can hydrate the exported page.
+var Ap = (e) => {
+  let { src: v, loop: t = !0, autoplay: n = !0 } = e,
+    o = R(null);
+  let isManagedHeroVideo = v.endsWith(`desktop-hero.mp4`);
+  (_(() => {
+    let a = o.current;
+    if (!a) return;
+    if (isManagedHeroVideo) return;
+    let c = v.startsWith(`/`) ? v.slice(1) : v,
+      d = `assets/misc/desktop-hero.mp4`,
+      f = /\.webm(?:[?#]|$)/i.test(c),
+      m = !1,
+      M = !1;
+    if (f) {
+      try {
+        m = !!(a.canPlayType(`video/webm; codecs="vp8"`) || a.canPlayType(`video/webm`));
+      } catch (e) {
+        console.warn(`[video] No se pudo comprobar soporte WebM; se usará el MP4 de respaldo.`, e);
+      }
+    }
+    let h = null,
+      g = null,
+      y = !0,
+      b = 0,
+      u = null,
+      x = null,
+      E = () => {
+        if (!y) return;
+        if (typeof a.requestVideoFrameCallback == `function`) {
+          g = a.requestVideoFrameCallback(C);
+        } else {
+          h = requestAnimationFrame(C);
+        }
+      },
+      C = async () => {
+        if (!y) return;
+        if (a.readyState >= 2 && a.videoWidth > 0) {
+          try {
+            let e = await createImageBitmap(a, { colorSpaceConversion: `none` });
+            if (!y) {
+              e.close && e.close();
+              return;
+            }
+            (u.width !== e.width || u.height !== e.height) && ((u.width = e.width), (u.height = e.height));
+            x.clearRect(0, 0, u.width, u.height);
+            x.drawImage(e, 0, 0);
+            e.close && e.close();
+            a.style.opacity = `0`;
+            b = 0;
+          } catch (e) {
+            if (++b >= 3) {
+              console.warn(`[video] No se pudo dibujar WebM en canvas; se mostrará el video directo.`, e);
+              u.remove();
+              u = null;
+              a.style.opacity = `1`;
+              y = !1;
+              return;
+            }
+          }
+        }
+        E();
+      },
+      k = () => {
+        if (!f) return;
+        if (M) {
+          y = !1;
+          u && u.remove();
+          u = null;
+          a.style.opacity = `1`;
+          console.error(`[video] Falló la reproducción del WebM y del MP4 de respaldo.`);
+          return;
+        }
+        M = !0;
+        y = !1;
+        u && u.remove();
+        u = null;
+        a.style.opacity = `1`;
+        a.src = d;
+        a.load();
+        n && a.play().catch(() => {});
+      },
+      w = () => n && a.play().catch(() => {}),
+      S = () => {
+        if (!f || !m || typeof createImageBitmap != `function`) return;
+        u = document.createElement(`canvas`);
+        u.setAttribute(`aria-hidden`, `true`);
+        u.style.cssText = `position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;background:transparent;pointer-events:none`;
+        a.parentElement && a.parentElement.insertBefore(u, a);
+        x = u.getContext(`2d`);
+        if (!x) {
+          u.remove();
+          u = null;
+          return;
+        }
+        E();
+      };
+    a.addEventListener(`error`, k);
+    a.addEventListener(`canplay`, w);
+    if (f && !m) {
+      M = !0;
+      a.src = d;
+      a.load();
+    } else {
+      S();
+    }
+    n && a.play().catch(() => {});
+    return () => {
+      y = !1;
+      if (h !== null) cancelAnimationFrame(h);
+      if (g !== null && typeof a.cancelVideoFrameCallback == `function`) a.cancelVideoFrameCallback(g);
+      a.removeEventListener(`error`, k);
+      a.removeEventListener(`canplay`, w);
+      u && u.remove();
+      a.style.opacity = `1`;
+    };
+  }), [v, t, n]);
+  return p(`video`, {
+    ref: o,
+    src: isManagedHeroVideo
+      ? void 0
+      : v.startsWith(`/`)
+        ? v.slice(1)
+        : v,
+    autoPlay: isManagedHeroVideo ? !1 : n,
+    loop: t,
+    muted: !0,
+    playsInline: !0,
+    preload: isManagedHeroVideo ? `none` : `auto`,
+    disablePictureInPicture: !0,
+    controlsList: `nodownload`,
+    "webkit-playsinline": ``,
+    "x5-video-player-type": `h5`,
+    "aria-label": `Animaci\u00f3n del cronograma`,
+    style: { width: `100%`, height: `100%`, objectFit: `contain`, display: `block`, background: `transparent` },
+  });
+};
+function LottieWhenVisible(e) {
+  let [t, n] = l(null),
+    [r, i] = l(!1),
+    [a, o] = l(!1),
+    [c, u] = l(!1),
+    [d, s] = l(null);
+  return (
+    _(() => {
+      if (!t || r) return;
+      if (typeof IntersectionObserver == `undefined`) {
+        i(!0);
+        return;
+      }
+      let observer = new IntersectionObserver(
+        (entries, observer) => {
+          entries.some((entry) => entry.isIntersecting) && (i(!0), observer.disconnect());
+        },
+        { rootMargin: `500px 0px` }
+      );
+      return (
+        observer.observe(t),
+        () => {
+          observer.disconnect();
+        }
+      );
+    }, [t, r]),
+    f(`div`, {
+      ref: n,
+      style: { width: `100%`, height: `100%`, position: `relative` },
+      children: [
+        r
+          ? p(
+              Ep,
+              {
+                src: e.src,
+                autoplay: e.autoplay,
+                loop: e.loop,
+                mode: e.mode,
+                playOnHover: e.playOnHover,
+                backgroundColor: e.backgroundColor,
+                speed: e.speed,
+                dotLottieRefCallback: (t) => {
+                  if (t && d !== t) {
+                    t.addEventListener(`load`, () => {
+                      o(!0);
+                      u(!1);
+                    });
+                    t.addEventListener(`loadError`, () => u(!0));
+                    t.addEventListener(`renderError`, () => u(!0));
+                    s(t);
+                  }
+                  e.dotLottieRefCallback?.(t);
+                },
+                style: e.style,
+                renderConfig: {
+                  ...e.renderConfig,
+                  devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+                  freezeOnOffscreen: !0,
+                },
+              },
+              e.src
+            )
+          : null,
+        !a
+          ? f(`div`, {
+              className: `home-lottie-loader`,
+              role: `status`,
+              "aria-live": `polite`,
+              children: [
+                f(`span`, {
+                  className: `home-lottie-loader-spinner`,
+                  "aria-hidden": !0,
+                  style: c ? { display: `none` } : void 0,
+                }),
+                f(`span`, {
+                  children: c ? `No se pudo cargar la animaci\u00f3n` : `Cargando animaci\u00f3n...`,
+                }),
+              ],
+            })
+          : null,
+      ],
+    })
+  );
+}
 function wp(e) {
   let t = z.current() === z.canvas,
     [n, r] = l(null),
@@ -35470,9 +35692,20 @@ function wp(e) {
         src: a,
         alt: ``,
         decoding: `async`,
+        loading: `lazy`,
+        fetchPriority: `low`,
         style: { width: `100%`, height: `100%`, objectFit: `contain`, display: `block` },
       }),
     });
+  // Keep the video as the direct Suspense child so its client tree matches Framer SSR.
+  if (typeof a === `string` && /\.(mp4|webm|m4v|mov)([?#].*)?$/i.test(a)) {
+    let isManagedHeroVideo = a.endsWith(`desktop-hero.mp4`);
+    return p(Ap, {
+      src: isManagedHeroVideo ? `desktop-hero.mp4` : a,
+      loop: e.loop !== !1,
+      autoplay: !isManagedHeroVideo && e.autoplay !== !1,
+    });
+  }
   let [o, s] = l(!1);
   (_(() => {
     if ((s(!1), !n)) return;
@@ -35513,22 +35746,18 @@ function wp(e) {
       children: [
         p(`div`, {
           style: { position: `relative`, width: `100%`, flex: 1, minHeight: 0 },
-          children: p(
-            Ep,
-            {
-              src: a,
-              autoplay: !t && !e.hover && e.autoplay,
-              loop: e.loop,
-              mode: i,
-              playOnHover: e.hover,
-              backgroundColor: e.background,
-              speed: e.speed,
-              dotLottieRefCallback: r,
-              style: { width: `100%`, height: `100%` },
-              renderConfig: e.controls ? { autoResize: !0 } : void 0,
-            },
-            a
-          ),
+          children: p(LottieWhenVisible, {
+            src: a,
+            autoplay: !t && !e.hover && e.autoplay,
+            loop: e.loop,
+            mode: i,
+            playOnHover: e.hover,
+            backgroundColor: e.background,
+            speed: e.speed,
+            dotLottieRefCallback: r,
+            style: { width: `100%`, height: `100%` },
+            renderConfig: e.controls ? { autoResize: !0 } : void 0,
+          }),
         }),
         e.controls
           ? p(Sp, {
@@ -35552,12 +35781,14 @@ var Tp,
       O(),
       g(),
       Cp(),
-      (Tp = `/assets/images/jkabfjkbaskfhasdbfasdhfasdfads.gif`),
+      (Tp = `/assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c_20261101062134.webm`),
       (Ep = _p),
       (wp.defaultProps = {
         srcUrl: Tp,
         autoplay: !0,
-        background: `#05F`,
+        // FIX local: default del Dot Lottie tenia fondo solido #05F; con recursos
+        // con alpha debe ser transparente para no tapar el fondo de la seccion.
+        background: `rgba(0, 0, 0, 0)`,
         controls: !1,
         direction: 1,
         hover: !1,
@@ -35835,7 +36066,7 @@ var om,
       (function (e) {
         ((e.Video = `Upload`), (e.Url = `URL`));
       })((sm ||= {})),
-      (cm = `https://framerusercontent.com/assets/MLWPbW1dUQawJLhhun3dBwpgJak.mp4`),
+      (cm = `https://framerusercontent.com/assets/desktop-hero.mp4`),
       (lm = c(function (e) {
         let {
             srcType: t = `URL`,
@@ -35980,7 +36211,7 @@ var om,
         srcUrl: {
           type: U.String,
           title: `URL`,
-          defaultValue: `https://framerusercontent.com/assets/MLWPbW1dUQawJLhhun3dBwpgJak.mp4`,
+          defaultValue: `https://framerusercontent.com/assets/desktop-hero.mp4`,
           hidden(e) {
             return e.srcType === `Upload`;
           },
@@ -40358,9 +40589,9 @@ e(() => {
                                     objectFit: `cover`,
                                     playing: !0,
                                     posterEnabled: !0,
-                                    srcFile: `../../assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4`,
+                                    srcFile: `../../assets/misc/desktop-hero.mp4`,
                                     srcType: `Upload`,
-                                    srcUrl: `https://framerusercontent.com/assets/MLWPbW1dUQawJLhhun3dBwpgJak.mp4`,
+                                    srcUrl: `https://framerusercontent.com/assets/desktop-hero.mp4`,
                                     startTime: 0,
                                     style: { height: `100%`, width: `100%` },
                                     topLeftRadius: 0,
@@ -40518,7 +40749,7 @@ e(() => {
                                 playing: !0,
                                 posterEnabled: !0,
                                 srcType: `Upload`,
-                                srcUrl: `https://framerusercontent.com/assets/MLWPbW1dUQawJLhhun3dBwpgJak.mp4`,
+                                srcUrl: `https://framerusercontent.com/assets/desktop-hero.mp4`,
                                 startTime: 0,
                                 style: { height: `100%`, width: `100%` },
                                 topLeftRadius: 0,
@@ -41141,9 +41372,11 @@ e(() => {
                                     loop: !0,
                                     progress: 0,
                                     speed: 1,
-                                    srcFile: `/assets/images/jkabfjkbaskfhasdbfasdhfasdfads.gif`,
-                                    srcType: `url`,
-                                    srcUrl: `/assets/images/jkabfjkbaskfhasdbfasdhfasdfads.gif`,
+                                    srcFile: `assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c.lottie?v=20261104-optimized-3`,
+                                    srcType: `file`,
+                                    srcUrl: `assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c.lottie?v=20261104-optimized-3`,
+                                    video: !0,
+                                    posterUrl: ``,
                                     style: { height: `100%`, width: `100%` },
                                     width: `100%`,
                                   }),
@@ -42145,7 +42378,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                           clrfc2Nme: `¿Cómo funciona el código único de invitación?`,
                                           cZbF_ZooR: `Por favor, confírmanos antes del 03 de Febrero de 2027. Necesitamos definir las capacidades y restricciones del menú con los organizadores antes de esa fecha.`,
                                           eDDf9EZ3g: `¿Habrá transmisión en vivo?`,
-                                          eocVa2nlJ: `La ceremonia inicia a las 4:00 PM, pero recomendamos llegar antes para disfrutar del lugar.`,
+                                          eocVa2nlJ: `La ceremonia inicia a las 15:30hs, pero recomendamos llegar antes para disfrutar del lugar.`,
                                           Ggmbc5OoO: `¿Cómo me traslado hacia/desde el lugar?`,
                                           GqZJt5liT: `¿Hay estacionamiento disponible en el lugar?`,
                                           height: `100%`,
@@ -42160,7 +42393,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                           qTYaUuARc: `¿La boda es en interior o al aire libre?`,
                                           qUDrqxRA_: `¡Claro! Nos encantaría ver el día desde tu punto de vista. Solo te pedimos que no uses flash, silencies tu teléfono y no obstruyas el paso de los fotógrafos profesionales.`,
                                           style: { width: `100%` },
-                                          t2MHMdVRA: `Sí, únicamente la ceremonia se transmitirá por YouTube Live de 4:00 PM para quienes no nos puedan acompañar físicamente.`,
+                                          t2MHMdVRA: `Sí, únicamente la ceremonia se transmitirá por YouTube Live desde las 15:30hs para quienes no nos puedan acompañar físicamente.`,
                                           t3O8tZ8FB: `¿Puedo llevar acompañante?`,
                                           tqm8zbggs: `Es posible que te soliciten un seguro médico internacional que cubra toda tu estadía en migraciones.`,
                                           UgwbE7Dnm: `¿A qué hora debo llegar?`,

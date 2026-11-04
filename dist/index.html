@@ -3,6 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (() => {
+        const userAgent = window.navigator.userAgent;
+        const mobileUserAgent = /android|iphone|ipad|ipod|iemobile|windows phone|opera mini/i.test(userAgent);
+        const coarsePointer = typeof window.matchMedia === "function" &&
+          window.matchMedia("(pointer: coarse)").matches;
+        const touchInput = coarsePointer || window.navigator.maxTouchPoints > 0;
+        const viewportWidth = Math.min(window.innerWidth || Infinity, window.screen.width || Infinity);
+        const device = mobileUserAgent || touchInput || viewportWidth <= 1100 ? "mobile" : "desktop";
+
+        window.__BODA_HERO_DEVICE = device;
+        document.documentElement.dataset.heroDevice = device;
+      })();
+    </script>
     <title>Confirma tu reserva a nuestra boda - Boda Mari y Simon</title>
     <meta name="description" content="Portal oficial de confirmación de asistencia (RSVP) y back office integral de gestión de reservas para la boda de Mari & Simón." />
     <meta property="og:title" content="Confirma tu reserva a nuestra boda - Boda Mari y Simon" />
@@ -13,8 +27,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-    <script type="module" crossorigin src="./assets/index-BZd8ioLd.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-Cfea0WYw.css">
+    <script type="module" crossorigin src="./assets/index-Bn5JhRSP.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DZhhhPFA.css">
   </head>
   <body>
     <div id="root"></div>
