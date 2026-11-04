@@ -206,22 +206,29 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
         const coarsePointer = window.matchMedia("(pointer: coarse)");
         const iframeCoarsePointer = childWindow.matchMedia("(pointer: coarse)");
         const desktopSource = `${assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4")}?v=20261104-desktop-7`;
-        const mobileSource = `${assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc-1.mp4")}?v=20261104-square-6`;
-        const isMobileDevice = () => {
+        const mobileSource = `${assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc-1.mp4")}?v=20261104-square-7`;
+        const isClearlyDesktopDevice = () => {
           const userAgent = `${window.navigator.userAgent} ${childWindow.navigator.userAgent}`;
           const mobileUserAgent = /android|iphone|ipad|ipod|iemobile|windows phone|opera mini/i.test(userAgent);
           const touchPoints = Math.max(
             window.navigator.maxTouchPoints || 0,
             childWindow.navigator.maxTouchPoints || 0
           );
+          const viewportWidth = Math.min(window.innerWidth, childWindow.innerWidth);
           const screenWidth = Math.min(window.screen.width, childWindow.screen.width);
-          return (
-            mobileViewport.matches ||
-            iframeMobileViewport.matches ||
+          const wideViewport = viewportWidth > 1280;
+          const wideScreen = screenWidth > 1280;
+          const hasTouchInput =
             coarsePointer.matches ||
             iframeCoarsePointer.matches ||
-            mobileUserAgent ||
-            (touchPoints > 0 && screenWidth <= 1280)
+            touchPoints > 0;
+          return (
+            wideViewport &&
+            wideScreen &&
+            !mobileViewport.matches &&
+            !iframeMobileViewport.matches &&
+            !hasTouchInput &&
+            !mobileUserAgent
           );
         };
         const videoContainer = heroVideo.parentElement;
@@ -357,7 +364,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
               return;
             }
             handleHeroVideoFailure(source, attempt, "timeout");
-          }, isMobileDevice() ? 12000 : 20000);
+          }, isClearlyDesktopDevice() ? 20000 : 12000);
           void heroVideo.play().catch((error: unknown) => {
             if (!heroLoadCancelled && isCurrentHeroSource()) {
               console.warn("[home] El navegador no inició la reproducción automática del video.", {
@@ -396,7 +403,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
         heroVideo.addEventListener("playing", revealLoadedHeroVideo);
         heroVideo.addEventListener("error", reportHeroVideoError);
         const updateHeroVideoSource = () => {
-          const isMobile = isMobileDevice();
+          const isMobile = !isClearlyDesktopDevice();
           childDocument.documentElement.classList.toggle("home-mobile-hero-video", isMobile);
           const nextSource = isMobile ? mobileSource : desktopSource;
           if (heroVideo.dataset.homeHeroSource === nextSource) return;
@@ -404,7 +411,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
           loadHeroVideoSource(nextSource, 0);
         };
         refreshHeroVideoAfterLoader = () => {
-          const expectedSource = isMobileDevice() ? mobileSource : desktopSource;
+          const expectedSource = isClearlyDesktopDevice() ? desktopSource : mobileSource;
           const currentPath = heroVideo.currentSrc
             ? new URL(heroVideo.currentSrc).pathname
             : "";
