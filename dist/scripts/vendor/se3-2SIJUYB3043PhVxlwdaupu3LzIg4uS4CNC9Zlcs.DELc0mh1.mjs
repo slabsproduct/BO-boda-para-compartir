@@ -35565,7 +35565,7 @@ var Ap = (e) => {
   return p(`video`, {
     ref: o,
     src: isManagedHeroVideo
-      ? `assets/misc/old nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4`
+      ? void 0
       : v.startsWith(`/`)
         ? v.slice(1)
         : v,
@@ -35700,7 +35700,7 @@ function wp(e) {
   if (typeof a === `string` && /\.(mp4|webm|m4v|mov)([?#].*)?$/i.test(a)) {
     let isManagedHeroVideo = a.endsWith(`nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4`);
     return p(Ap, {
-      src: a,
+      src: isManagedHeroVideo ? `nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4` : a,
       loop: e.loop !== !1,
       autoplay: !isManagedHeroVideo && e.autoplay !== !1,
     });
@@ -41371,9 +41371,9 @@ e(() => {
                                     loop: !0,
                                     progress: 0,
                                     speed: 1,
-                                    srcFile: `assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c.lottie?v=20261104-optimized-2`,
+                                    srcFile: `assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c.lottie?v=20261104-optimized-3`,
                                     srcType: `file`,
-                                    srcUrl: `assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c.lottie?v=20261104-optimized-2`,
+                                    srcUrl: `assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c.lottie?v=20261104-optimized-3`,
                                     video: !0,
                                     posterUrl: ``,
                                     style: { height: `100%`, width: `100%` },

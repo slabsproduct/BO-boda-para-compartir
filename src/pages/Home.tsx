@@ -195,117 +195,14 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
         heroVideoRef.current = heroVideo;
         const mobileViewport = window.matchMedia("(max-width: 1023.98px)");
         const iframeMobileViewport = childWindow.matchMedia("(max-width: 1023.98px)");
-        const desktopSource = `${assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4")}?v=20261104-desktop-6`;
-        const mobileSource = `${assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc-1.mp4")}?v=20261104-square-3`;
+        const desktopSource = `${assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4")}?v=20261104-desktop-7`;
+        const mobileSource = `${assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc-1.mp4")}?v=20261104-square-4`;
         const videoContainer = heroVideo.parentElement;
         if (!videoContainer) {
           throw new Error("[home] No se encontró el contenedor del video del hero.");
         }
         videoContainer.style.position = "relative";
         videoContainer.style.overflow = "hidden";
-
-        let fallbackVideo = videoContainer.querySelector<HTMLVideoElement>(".home-hero-placeholder");
-        if (!fallbackVideo) {
-          fallbackVideo = childDocument.createElement("video");
-          fallbackVideo.className = "home-hero-placeholder";
-          fallbackVideo.setAttribute("aria-hidden", "true");
-          videoContainer.insertBefore(fallbackVideo, heroVideo);
-        }
-        const fallbackSource = assetUrl("/assets/misc/old nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4");
-        if (fallbackVideo.getAttribute("src") !== fallbackSource) {
-          fallbackVideo.src = fallbackSource;
-        }
-        fallbackVideo.autoplay = true;
-        fallbackVideo.muted = true;
-        fallbackVideo.loop = true;
-        fallbackVideo.playsInline = true;
-        fallbackVideo.preload = "auto";
-        fallbackVideo.setAttribute("aria-hidden", "true");
-        if (fallbackVideo.paused) {
-          void fallbackVideo.play().catch((error: unknown) => {
-            console.warn("[home] No se pudo reproducir el video de respaldo del hero.", error);
-          });
-        }
-
-        let loadingIndicator = videoContainer.querySelector<HTMLElement>(".home-hero-loading");
-        if (!loadingIndicator) {
-          loadingIndicator = childDocument.createElement("div");
-          loadingIndicator.className = "home-hero-loading";
-          loadingIndicator.setAttribute("role", "status");
-          loadingIndicator.setAttribute("aria-label", "Cargando video");
-          loadingIndicator.innerHTML = '<span class="home-hero-loading-spinner"></span>';
-          videoContainer.appendChild(loadingIndicator);
-        }
-
-        let heroDisplayStyles = childDocument.querySelector<HTMLStyleElement>(
-          "#home-hero-video-loading-styles"
-        );
-        if (!heroDisplayStyles) {
-          heroDisplayStyles = childDocument.createElement("style");
-          heroDisplayStyles.id = "home-hero-video-loading-styles";
-          heroDisplayStyles.textContent = `
-            .home-hero-placeholder {
-              position: absolute;
-              inset: 0;
-              z-index: 0;
-              width: 100%;
-              height: 100%;
-              object-fit: cover;
-              object-position: center;
-              opacity: 0.55;
-              transition: opacity 450ms ease;
-              pointer-events: none;
-            }
-            .home-hero-loading {
-              position: absolute;
-              inset: 0;
-              z-index: 2;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              background: rgba(26, 29, 19, 0.12);
-              transition: opacity 250ms ease;
-              pointer-events: none;
-            }
-            .home-hero-loading[hidden] {
-              display: none;
-            }
-            .home-hero-loading-spinner {
-              width: 36px;
-              height: 36px;
-              border: 3px solid rgba(255, 255, 255, 0.45);
-              border-top-color: #fff;
-              border-radius: 50%;
-              box-shadow: 0 1px 8px rgba(0, 0, 0, 0.2);
-              animation: home-hero-spin 800ms linear infinite;
-            }
-            @keyframes home-hero-spin {
-              to { transform: rotate(360deg); }
-            }
-            @media (prefers-reduced-motion: reduce) {
-              .home-hero-placeholder,
-              .home-hero-loading,
-              .home-hero-loading-spinner {
-                transition: none;
-                animation: none;
-              }
-            }
-          `;
-          childDocument.head.appendChild(heroDisplayStyles);
-        }
-
-        let heroLoadCancelled = false;
-        const showLoadedHeroVideo = (loaded: boolean) => {
-          heroVideo.style.opacity = loaded ? "1" : "0";
-          fallbackVideo.style.opacity = loaded ? "0" : "0.55";
-          loadingIndicator.hidden = loaded;
-          if (!loaded) {
-            void fallbackVideo.play().catch((error: unknown) => {
-              console.warn("[home] No se pudo reproducir el video de respaldo del hero.", error);
-            });
-          }
-        };
-        showLoadedHeroVideo(false);
 
         let responsiveStyles = childDocument.querySelector<HTMLStyleElement>(
           "#home-responsive-hero-video-styles"
@@ -376,18 +273,18 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
         heroVideo.removeAttribute("src");
         heroVideo.preload = "none";
         heroVideo.load();
+        heroVideo.style.opacity = "0";
         heroVideo.autoplay = true;
         heroVideo.muted = true;
         heroVideo.loop = true;
         heroVideo.playsInline = true;
-        heroVideo.style.opacity = "1";
         heroVideo.style.visibility = "visible";
         heroVideo.style.zIndex = "1";
         heroVideo.style.position = "relative";
         heroVideo.style.transition = "opacity 450ms ease";
         heroVideo.style.objectFit = "cover";
+        let heroLoadCancelled = false;
         let heroLoadSequence = 0;
-        let desktopVideoTimeout: number | undefined;
         const loadHeroVideoWithRetry = async (source: string, sequence: number): Promise<boolean> => {
           for (let attempt = 0; attempt < 3 && !heroLoadCancelled && sequence === heroLoadSequence; attempt += 1) {
             const ready = await new Promise<boolean>((resolve) => {
@@ -462,39 +359,25 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
         };
         const updateHeroVideoSource = () => {
           const isMobile = mobileViewport.matches || iframeMobileViewport.matches;
-          window.clearTimeout(desktopVideoTimeout);
           childDocument.documentElement.classList.toggle("home-mobile-hero-video", isMobile);
-          showLoadedHeroVideo(false);
+          heroVideo.style.opacity = "0";
           heroVideo.muted = !audioEnabledRef.current;
           const nextSource = isMobile ? mobileSource : desktopSource;
           const sequence = ++heroLoadSequence;
-          const startLoading = () => {
+          heroVideo.preload = "auto";
+          heroVideo.removeAttribute("fetchpriority");
+          void loadHeroVideoWithRetry(nextSource, sequence).then((ready) => {
             if (sequence !== heroLoadSequence || heroLoadCancelled) return;
-            heroVideo.preload = "auto";
-            if (isMobile) {
-              heroVideo.removeAttribute("fetchpriority");
-            } else {
-              heroVideo.setAttribute("fetchpriority", "low");
-            }
-            void loadHeroVideoWithRetry(nextSource, sequence).then((ready) => {
-              if (sequence !== heroLoadSequence || heroLoadCancelled) return;
-              showLoadedHeroVideo(ready);
-              heroVideoReady = true;
-              hideLoaderWhenReady();
-            });
-          };
-          if (isMobile) {
-            startLoading();
-          } else {
-            desktopVideoTimeout = window.setTimeout(startLoading, 1500);
-          }
+            heroVideo.style.opacity = ready ? "1" : "0";
+            heroVideoReady = true;
+            hideLoaderWhenReady();
+          });
         };
         mobileViewport.addEventListener("change", updateHeroVideoSource);
         iframeMobileViewport.addEventListener("change", updateHeroVideoSource);
         updateHeroVideoSource();
         removeHeroViewportListener = () => {
           heroLoadCancelled = true;
-          window.clearTimeout(desktopVideoTimeout);
           mobileViewport.removeEventListener("change", updateHeroVideoSource);
           iframeMobileViewport.removeEventListener("change", updateHeroVideoSource);
           childDocument.documentElement.classList.remove("home-mobile-hero-video");
