@@ -35450,13 +35450,13 @@ var Sp,
 var Ap = (e) => {
   let { src: v, loop: t = !0, autoplay: n = !0 } = e,
     o = R(null);
-  let isManagedHeroVideo = v.endsWith(`nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4`);
+  let isManagedHeroVideo = v.endsWith(`desktop-hero.mp4`);
   (_(() => {
     let a = o.current;
     if (!a) return;
     if (isManagedHeroVideo) return;
     let c = v.startsWith(`/`) ? v.slice(1) : v,
-      d = `assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4`,
+      d = `assets/misc/desktop-hero.mp4`,
       f = /\.webm(?:[?#]|$)/i.test(c),
       m = !1,
       M = !1;
@@ -35699,9 +35699,9 @@ function wp(e) {
     });
   // Keep the video as the direct Suspense child so its client tree matches Framer SSR.
   if (typeof a === `string` && /\.(mp4|webm|m4v|mov)([?#].*)?$/i.test(a)) {
-    let isManagedHeroVideo = a.endsWith(`nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4`);
+    let isManagedHeroVideo = a.endsWith(`desktop-hero.mp4`);
     return p(Ap, {
-      src: isManagedHeroVideo ? `nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4` : a,
+      src: isManagedHeroVideo ? `desktop-hero.mp4` : a,
       loop: e.loop !== !1,
       autoplay: !isManagedHeroVideo && e.autoplay !== !1,
     });
@@ -36066,7 +36066,7 @@ var om,
       (function (e) {
         ((e.Video = `Upload`), (e.Url = `URL`));
       })((sm ||= {})),
-      (cm = `https://framerusercontent.com/assets/MLWPbW1dUQawJLhhun3dBwpgJak.mp4`),
+      (cm = `https://framerusercontent.com/assets/desktop-hero.mp4`),
       (lm = c(function (e) {
         let {
             srcType: t = `URL`,
@@ -36211,7 +36211,7 @@ var om,
         srcUrl: {
           type: U.String,
           title: `URL`,
-          defaultValue: `https://framerusercontent.com/assets/MLWPbW1dUQawJLhhun3dBwpgJak.mp4`,
+          defaultValue: `https://framerusercontent.com/assets/desktop-hero.mp4`,
           hidden(e) {
             return e.srcType === `Upload`;
           },
@@ -40589,9 +40589,9 @@ e(() => {
                                     objectFit: `cover`,
                                     playing: !0,
                                     posterEnabled: !0,
-                                    srcFile: `../../assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4`,
+                                    srcFile: `../../assets/misc/desktop-hero.mp4`,
                                     srcType: `Upload`,
-                                    srcUrl: `https://framerusercontent.com/assets/MLWPbW1dUQawJLhhun3dBwpgJak.mp4`,
+                                    srcUrl: `https://framerusercontent.com/assets/desktop-hero.mp4`,
                                     startTime: 0,
                                     style: { height: `100%`, width: `100%` },
                                     topLeftRadius: 0,
@@ -40749,7 +40749,7 @@ e(() => {
                                 playing: !0,
                                 posterEnabled: !0,
                                 srcType: `Upload`,
-                                srcUrl: `https://framerusercontent.com/assets/MLWPbW1dUQawJLhhun3dBwpgJak.mp4`,
+                                srcUrl: `https://framerusercontent.com/assets/desktop-hero.mp4`,
                                 startTime: 0,
                                 style: { height: `100%`, width: `100%` },
                                 topLeftRadius: 0,
@@ -42378,7 +42378,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                           clrfc2Nme: `¿Cómo funciona el código único de invitación?`,
                                           cZbF_ZooR: `Por favor, confírmanos antes del 03 de Febrero de 2027. Necesitamos definir las capacidades y restricciones del menú con los organizadores antes de esa fecha.`,
                                           eDDf9EZ3g: `¿Habrá transmisión en vivo?`,
-                                          eocVa2nlJ: `La ceremonia inicia a las 4:00 PM, pero recomendamos llegar antes para disfrutar del lugar.`,
+                                          eocVa2nlJ: `La ceremonia inicia a las 15:30hs, pero recomendamos llegar antes para disfrutar del lugar.`,
                                           Ggmbc5OoO: `¿Cómo me traslado hacia/desde el lugar?`,
                                           GqZJt5liT: `¿Hay estacionamiento disponible en el lugar?`,
                                           height: `100%`,
@@ -42393,7 +42393,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                           qTYaUuARc: `¿La boda es en interior o al aire libre?`,
                                           qUDrqxRA_: `¡Claro! Nos encantaría ver el día desde tu punto de vista. Solo te pedimos que no uses flash, silencies tu teléfono y no obstruyas el paso de los fotógrafos profesionales.`,
                                           style: { width: `100%` },
-                                          t2MHMdVRA: `Sí, únicamente la ceremonia se transmitirá por YouTube Live de 4:00 PM para quienes no nos puedan acompañar físicamente.`,
+                                          t2MHMdVRA: `Sí, únicamente la ceremonia se transmitirá por YouTube Live desde las 15:30hs para quienes no nos puedan acompañar físicamente.`,
                                           t3O8tZ8FB: `¿Puedo llevar acompañante?`,
                                           tqm8zbggs: `Es posible que te soliciten un seguro médico internacional que cubra toda tu estadía en migraciones.`,
                                           UgwbE7Dnm: `¿A qué hora debo llegar?`,

@@ -11,7 +11,6 @@ import {
   CheckCircle,
   XCircle,
   HelpCircle,
-  Info,
   ChevronRight,
   Send,
   Lock,
@@ -1220,13 +1219,6 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
               </div>
             </div>
 
-            {/* Note box */}
-            <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-2xl flex items-start gap-3">
-              <Info className="w-4 h-4 text-amber-800 shrink-0 mt-0.5" />
-              <div className="text-xs text-amber-900 leading-relaxed">
-                <strong>¿Preferís MySQL o MariaDB en DonWeb?</strong> Podés descargar el archivo <strong>Dump SQL</strong> con el botón superior y cargarlo en phpMyAdmin de DonWeb en un solo clic. El esquema y las tablas ya están preparadas para compatibilidad universal.
-              </div>
-            </div>
           </div>
         </div>
       )}

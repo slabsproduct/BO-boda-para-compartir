@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Home } from "./pages/Home";
 import { RSVP } from "./pages/RSVP";
@@ -81,7 +81,6 @@ export default function App() {
         <div className={currentView === 'home' ? 'w-full' : 'fixed inset-0 -z-10 invisible pointer-events-none'}>
           <Home
             onRsvpClick={() => switchView('rsvp')}
-            onAdminClick={() => switchView('admin')}
           />
         </div>
 

@@ -672,7 +672,7 @@ export const RSVP: React.FC<RsvpProps> = ({ initialCode, onAdminClick }) => {
                 <p className="text-emerald-700 font-semibold flex items-center gap-1">
                   <Bus className="w-3.5 h-3.5" />
                   {transportReservationCount > 0
-                    ? `Transporte: ${transportReservationCount} asiento${transportReservationCount === 1 ? "" : "s"} reservado${transportReservationCount === 1 ? "" : "s"} · X$ por persona.`
+                      ? `Transporte: ${transportReservationCount} asiento${transportReservationCount === 1 ? "" : "s"} reservado${transportReservationCount === 1 ? "" : "s"}.`
                     : "Transporte: sin asientos reservados."}
                 </p>
               )}

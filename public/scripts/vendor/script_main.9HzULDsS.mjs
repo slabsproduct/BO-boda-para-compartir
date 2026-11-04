@@ -2021,6 +2021,13 @@ async function Zt({
 function Qt() {
   $ && l.__framer_events.push(arguments);
 }
+function FramerHydrationSignal({ children }) {
+  T(() => {
+    document.documentElement.dataset.framerHydrated = "true";
+    document.dispatchEvent(new Event("framer:hydrated"));
+  }, []);
+  return children;
+}
 async function $t(e, t) {
   function n(e, t, n = !0) {
     if (e.caught || l.__framer_hadFatalError) return;
@@ -2132,7 +2139,7 @@ async function $t(e, t) {
             new CustomEvent(`framer:pageview`, { detail: { framerLocale: t || null } })
           ));
       })();
-    let p = await f;
+    let p = m(FramerHydrationSignal, { children: await f });
     e
       ? (be(`framer-rewrite-breakpoints`, () => {
           (ae(u), l.__framer_onRewriteBreakpoints?.(u));

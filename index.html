@@ -3,6 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (() => {
+        const userAgent = window.navigator.userAgent;
+        const mobileUserAgent = /android|iphone|ipad|ipod|iemobile|windows phone|opera mini/i.test(userAgent);
+        const coarsePointer = typeof window.matchMedia === "function" &&
+          window.matchMedia("(pointer: coarse)").matches;
+        const touchInput = coarsePointer || window.navigator.maxTouchPoints > 0;
+        const viewportWidth = Math.min(window.innerWidth || Infinity, window.screen.width || Infinity);
+        const device = mobileUserAgent || touchInput || viewportWidth <= 1100 ? "mobile" : "desktop";
+
+        window.__BODA_HERO_DEVICE = device;
+        document.documentElement.dataset.heroDevice = device;
+      })();
+    </script>
     <title>Confirma tu reserva a nuestra boda - Boda Mari y Simon</title>
     <meta name="description" content="Portal oficial de confirmación de asistencia (RSVP) y back office integral de gestión de reservas para la boda de Mari & Simón." />
     <meta property="og:title" content="Confirma tu reserva a nuestra boda - Boda Mari y Simon" />

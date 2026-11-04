@@ -1,17 +1,22 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Volume2, VolumeX } from "lucide-react";
-import { assetUrl, framerHomeUrl, rsvpViewUrl, rewriteLocalAssetUrl } from "../lib/base";
+import {
+  assetUrl,
+  framerHomeUrl,
+  resolveHeroDevice,
+  rsvpViewUrl,
+} from "../lib/base";
 
 interface HomeProps {
   onRsvpClick: () => void;
-  onAdminClick?: () => void;
 }
 
-export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
+export const Home: React.FC<HomeProps> = ({ onRsvpClick }) => {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const heroVideoRef = useRef<HTMLVideoElement>(null);
   const audioEnabledRef = useRef(false);
   const onRsvpClickRef = useRef(onRsvpClick);
+  const [heroDevice] = useState(resolveHeroDevice);
   const [frameHeight, setFrameHeight] = useState(() => window.innerHeight);
   const [isLoading, setIsLoading] = useState(true);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
@@ -43,10 +48,18 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
     const frame = frameRef.current;
     if (!frame) return;
 
+    const frameDevice = new URL(frame.src, window.location.href).searchParams.get("device");
+    if (frameDevice !== "mobile" && frameDevice !== "desktop") {
+      throw new Error("[home] El iframe no recibió un perfil de dispositivo válido.");
+    }
+
     document.documentElement.classList.add("home-scrollbar-hidden");
     const loadingStartedAt = Date.now();
     let preloadTimeout: number | undefined;
     let fallbackTimeout: number | undefined;
+    let heroVideoStartTimeout: number | undefined;
+    let hydrationWaitDocument: Document | undefined;
+    let hydrationReadyListener: (() => void) | undefined;
     let cleanupFrame: (() => void) | undefined;
     let refreshHeroVideoAfterLoader: (() => void) | undefined;
     let iframeLoaded = false;
@@ -57,7 +70,14 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       if (loaderFinished) return;
       loaderFinished = true;
       setIsLoading(false);
-      refreshHeroVideoAfterLoader?.();
+      startHeroVideoAfterLoader();
+    };
+
+    const startHeroVideoAfterLoader = () => {
+      window.clearTimeout(heroVideoStartTimeout);
+      heroVideoStartTimeout = window.setTimeout(() => {
+        refreshHeroVideoAfterLoader?.();
+      }, 400);
     };
 
     const hideLoaderWhenReady = () => {
@@ -83,6 +103,18 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       const childWindow = childDocument.defaultView;
       if (!childWindow) return;
 
+      if (childDocument.documentElement.dataset.framerHydrated !== "true") {
+        if (hydrationReadyListener) return;
+        hydrationWaitDocument = childDocument;
+        hydrationReadyListener = () => {
+          hydrationReadyListener = undefined;
+          hydrationWaitDocument = undefined;
+          handleLoad();
+        };
+        childDocument.addEventListener("framer:hydrated", hydrationReadyListener, { once: true });
+        return;
+      }
+
       cleanupFrame?.();
 
       let scrollbarStyles = childDocument.querySelector<HTMLStyleElement>(
@@ -92,7 +124,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
         scrollbarStyles = childDocument.createElement("style");
         scrollbarStyles.id = "home-scrollbar-hidden-styles";
         scrollbarStyles.textContent = `
-          @media (min-width: 810px) {
+          @media (min-width: 1101px) {
             html, body { scrollbar-width: none !important; -ms-overflow-style: none !important; }
             html::-webkit-scrollbar, body::-webkit-scrollbar { display: none !important; width: 0 !important; }
           }
@@ -107,7 +139,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
         mobileContactStyles.id = "home-mobile-contact-styles";
         mobileContactStyles.textContent = `
           #home-mobile-contact-section { display: none; }
-          @media (max-width: 809.98px) {
+          @media (max-width: 1100px) {
             #home-mobile-contact-section {
               display: flex !important;
               flex-direction: column;
@@ -201,36 +233,11 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       );
       if (heroVideo) {
         heroVideoRef.current = heroVideo;
-        const mobileViewport = window.matchMedia("(max-width: 1023.98px)");
-        const iframeMobileViewport = childWindow.matchMedia("(max-width: 1023.98px)");
-        const coarsePointer = window.matchMedia("(pointer: coarse)");
-        const iframeCoarsePointer = childWindow.matchMedia("(pointer: coarse)");
-        const desktopSource = `${assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4")}?v=20261104-desktop-7`;
-        const mobileSource = `${assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc-1.mp4")}?v=20261104-square-7`;
-        const isClearlyDesktopDevice = () => {
-          const userAgent = `${window.navigator.userAgent} ${childWindow.navigator.userAgent}`;
-          const mobileUserAgent = /android|iphone|ipad|ipod|iemobile|windows phone|opera mini/i.test(userAgent);
-          const touchPoints = Math.max(
-            window.navigator.maxTouchPoints || 0,
-            childWindow.navigator.maxTouchPoints || 0
-          );
-          const viewportWidth = Math.min(window.innerWidth, childWindow.innerWidth);
-          const screenWidth = Math.min(window.screen.width, childWindow.screen.width);
-          const wideViewport = viewportWidth > 1280;
-          const wideScreen = screenWidth > 1280;
-          const hasTouchInput =
-            coarsePointer.matches ||
-            iframeCoarsePointer.matches ||
-            touchPoints > 0;
-          return (
-            wideViewport &&
-            wideScreen &&
-            !mobileViewport.matches &&
-            !iframeMobileViewport.matches &&
-            !hasTouchInput &&
-            !mobileUserAgent
-          );
-        };
+        const desktopSource = `${assetUrl("/assets/misc/desktop-hero.mp4")}?v=20261104-desktop-12`;
+        const mobileSource = `${assetUrl("/assets/misc/mobile-hero.mp4")}?v=20261104-mobile-12`;
+        const selectedSource = frameDevice === "mobile" ? mobileSource : desktopSource;
+        let heroVideoStarted = false;
+        heroVideo.dataset.homeHeroDevice = frameDevice;
         const videoContainer = heroVideo.parentElement;
         if (!videoContainer) {
           throw new Error("[home] No se encontró el contenedor del video del hero.");
@@ -245,7 +252,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
           responsiveStyles = childDocument.createElement("style");
           responsiveStyles.id = "home-responsive-hero-video-styles";
           responsiveStyles.textContent = `
-              @media (min-width: 1024px) {
+              @media (min-width: 1101px) {
                 .framer-oargH .framer-15p17nr-container video {
                   -webkit-mask-image:
                     linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 10px), transparent),
@@ -364,7 +371,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
               return;
             }
             handleHeroVideoFailure(source, attempt, "timeout");
-          }, isClearlyDesktopDevice() ? 20000 : 12000);
+          }, frameDevice === "desktop" ? 20000 : 12000);
           void heroVideo.play().catch((error: unknown) => {
             if (!heroLoadCancelled && isCurrentHeroSource()) {
               console.warn("[home] El navegador no inició la reproducción automática del video.", {
@@ -403,41 +410,30 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
         heroVideo.addEventListener("playing", revealLoadedHeroVideo);
         heroVideo.addEventListener("error", reportHeroVideoError);
         const updateHeroVideoSource = () => {
-          const isMobile = !isClearlyDesktopDevice();
+          const isMobile = frameDevice === "mobile";
           childDocument.documentElement.classList.toggle("home-mobile-hero-video", isMobile);
-          const nextSource = isMobile ? mobileSource : desktopSource;
-          if (heroVideo.dataset.homeHeroSource === nextSource) return;
+          const expectedPath = new URL(selectedSource, childDocument.baseURI).pathname;
+          const currentSource = heroVideo.currentSrc || heroVideo.src;
+          const currentPath = currentSource ? new URL(currentSource, childDocument.baseURI).pathname : "";
+          if (
+            heroVideoStarted &&
+            heroVideo.dataset.homeHeroSource === selectedSource &&
+            currentPath === expectedPath &&
+            !heroVideo.error
+          ) return;
+
+          heroVideoStarted = true;
           heroVideo.muted = !audioEnabledRef.current;
-          loadHeroVideoSource(nextSource, 0);
+          delete heroVideo.dataset.homeHeroSource;
+          loadHeroVideoSource(selectedSource, 0);
         };
         refreshHeroVideoAfterLoader = () => {
-          const expectedSource = isClearlyDesktopDevice() ? desktopSource : mobileSource;
-          const currentPath = heroVideo.currentSrc
-            ? new URL(heroVideo.currentSrc).pathname
-            : "";
-          const expectedPath = new URL(expectedSource, childDocument.baseURI).pathname;
-          if (
-            heroVideo.dataset.homeHeroSource !== expectedSource ||
-            (currentPath && currentPath !== expectedPath) ||
-            heroVideo.error
-          ) {
-            delete heroVideo.dataset.homeHeroSource;
-            updateHeroVideoSource();
-          }
+          updateHeroVideoSource();
         };
-        if (loaderFinished) refreshHeroVideoAfterLoader();
-        mobileViewport.addEventListener("change", updateHeroVideoSource);
-        iframeMobileViewport.addEventListener("change", updateHeroVideoSource);
-        coarsePointer.addEventListener("change", updateHeroVideoSource);
-        iframeCoarsePointer.addEventListener("change", updateHeroVideoSource);
-        updateHeroVideoSource();
+        if (loaderFinished) startHeroVideoAfterLoader();
         removeHeroViewportListener = () => {
           heroLoadCancelled = true;
           window.clearTimeout(heroVideoLoadTimeout);
-          mobileViewport.removeEventListener("change", updateHeroVideoSource);
-          iframeMobileViewport.removeEventListener("change", updateHeroVideoSource);
-          coarsePointer.removeEventListener("change", updateHeroVideoSource);
-          iframeCoarsePointer.removeEventListener("change", updateHeroVideoSource);
           heroVideo.removeEventListener("loadeddata", revealLoadedHeroVideo);
           heroVideo.removeEventListener("canplay", revealLoadedHeroVideo);
           heroVideo.removeEventListener("playing", revealLoadedHeroVideo);
@@ -488,7 +484,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
           0% { box-shadow: 0 0 0 0 rgba(110, 13, 35, 0.28); transform: scale(0.94); }
           70%, 100% { box-shadow: 0 0 0 10px rgba(110, 13, 35, 0); transform: scale(1); }
         }
-        @media (min-width: 810px) { .mobile-flip-hint { display: none !important; } }
+        @media (min-width: 1101px) { .mobile-flip-hint { display: none !important; } }
         @media (prefers-reduced-motion: reduce) {
           .mobile-flip-hint { transition: none; }
           .mobile-flip-hint-circle { animation: none; }
@@ -499,7 +495,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       const flipCardSelector = "#datos .framer-19orn2u-container, #datos .framer-18cyolp-container, #datos .framer-gvzoy3-container";
       const flipCardTimers = new Map<HTMLElement, number>();
       const flipHintRemovalTimers = new Set<number>();
-      const mobileViewport = childWindow.matchMedia("(max-width: 809.98px)");
+      const mobileViewport = childWindow.matchMedia("(max-width: 1100px)");
       const fadeOutFlipHint = (card: HTMLElement) => {
         const hint = card.querySelector<HTMLElement>(".mobile-flip-hint");
         if (!hint || hint.classList.contains("mobile-flip-hint-hidden")) return;
@@ -619,7 +615,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
         "QAKwxgTNTfzEKEe982NwhbBNEgU.jpg": [480, 768, 1280],
         "CHtE3OgJcP9n0TFXZFlZ26TPQo.jpg": [480, 768, 1280],
       };
-      const weddingPhotoSizes = "(max-width: 809.98px) 90vw, (max-width: 1199px) 45vw, 600px";
+      const weddingPhotoSizes = "(max-width: 1100px) 90vw, (max-width: 1199px) 45vw, 600px";
       const applyResponsiveWeddingPhotos = () => {
         childDocument.querySelectorAll<HTMLImageElement>("img[src]").forEach((image) => {
           const source = image.getAttribute("src") || "";
@@ -671,7 +667,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
             return `${encodeURI(assetUrl(path))}?v=optimized-1 ${width}w`;
           })
           .join(", ");
-      const mobileGifViewport = childWindow.matchMedia("(max-width: 809.98px)").matches;
+      const mobileGifViewport = childWindow.matchMedia("(max-width: 1100px)").matches;
       const coupleGifFilename = "Couple_dancing_in_red_ink_20261024202145_alpha (1)";
       const walkingGifFilename = "Characters_walking_with_dog_20261024202041_alpha";
       const applyWeddingGifs = () => {
@@ -687,7 +683,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
           ".framer-11aifpr",
           `${assetUrl(`/assets/images/${walkingGifFilename}-${mobileGifViewport ? 270 : 780}.gif`)}?v=optimized-1`,
           gifCandidates(walkingGifFilename, [270, 387, 540, 780]),
-          "(max-width: 809.98px) 269px, 387px"
+          "(max-width: 1100px) 269px, 387px"
         );
       };
       const weddingGifObserver = new MutationObserver(applyWeddingGifs);
@@ -821,6 +817,10 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       frame.removeEventListener("load", handleLoad);
       window.clearTimeout(preloadTimeout);
       window.clearTimeout(fallbackTimeout);
+      window.clearTimeout(heroVideoStartTimeout);
+      if (hydrationReadyListener && hydrationWaitDocument) {
+        hydrationWaitDocument.removeEventListener("framer:hydrated", hydrationReadyListener);
+      }
       cleanupFrame?.();
       refreshHeroVideoAfterLoader = undefined;
       document.documentElement.classList.remove("home-scrollbar-hidden");
@@ -842,7 +842,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       </div>
       <iframe
         ref={frameRef}
-        src={framerHomeUrl()}
+        src={framerHomeUrl(heroDevice)}
         title="Boda de Mari y Simón"
         className="fixed inset-x-0 top-0 z-40 block w-full border-0"
         style={{ height: "100vh" }}
