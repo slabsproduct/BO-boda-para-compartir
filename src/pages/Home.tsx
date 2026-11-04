@@ -48,8 +48,17 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
     let preloadTimeout: number | undefined;
     let fallbackTimeout: number | undefined;
     let cleanupFrame: (() => void) | undefined;
+    let refreshHeroVideoAfterLoader: (() => void) | undefined;
     let iframeLoaded = false;
     let hideLoaderScheduled = false;
+    let loaderFinished = false;
+
+    const finishLoading = () => {
+      if (loaderFinished) return;
+      loaderFinished = true;
+      setIsLoading(false);
+      refreshHeroVideoAfterLoader?.();
+    };
 
     const hideLoaderWhenReady = () => {
       if (!iframeLoaded || hideLoaderScheduled) return;
@@ -58,13 +67,13 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       const remainingLoadingTime = Math.max(0, minimumLoadingTime - (Date.now() - loadingStartedAt));
       preloadTimeout = window.setTimeout(() => {
         window.clearTimeout(fallbackTimeout);
-        setIsLoading(false);
+        finishLoading();
       }, remainingLoadingTime);
     };
 
     fallbackTimeout = window.setTimeout(() => {
       console.warn("[home] Se agotó la espera máxima de carga; se ocultará el preloader.");
-      setIsLoading(false);
+      finishLoading();
     }, 60000);
 
     const handleLoad = () => {
@@ -194,8 +203,10 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
         heroVideoRef.current = heroVideo;
         const mobileViewport = window.matchMedia("(max-width: 1023.98px)");
         const iframeMobileViewport = childWindow.matchMedia("(max-width: 1023.98px)");
+        const coarsePointer = window.matchMedia("(pointer: coarse)");
+        const iframeCoarsePointer = childWindow.matchMedia("(pointer: coarse)");
         const desktopSource = `${assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4")}?v=20261104-desktop-7`;
-        const mobileSource = `${assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc-1.mp4")}?v=20261104-square-5`;
+        const mobileSource = `${assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc-1.mp4")}?v=20261104-square-6`;
         const isMobileDevice = () => {
           const userAgent = `${window.navigator.userAgent} ${childWindow.navigator.userAgent}`;
           const mobileUserAgent = /android|iphone|ipad|ipod|iemobile|windows phone|opera mini/i.test(userAgent);
@@ -207,6 +218,8 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
           return (
             mobileViewport.matches ||
             iframeMobileViewport.matches ||
+            coarsePointer.matches ||
+            iframeCoarsePointer.matches ||
             mobileUserAgent ||
             (touchPoints > 0 && screenWidth <= 1280)
           );
@@ -298,10 +311,13 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
         heroVideo.style.transition = "opacity 450ms ease";
         heroVideo.style.objectFit = "cover";
         let heroLoadCancelled = false;
+        let heroVideoLoadTimeout: number | undefined;
+        let heroSourceAttempt = 0;
         const isCurrentHeroSource = () => {
           const expectedSource = heroVideo.dataset.homeHeroSource;
-          if (!expectedSource || !heroVideo.currentSrc) return false;
-          return new URL(heroVideo.currentSrc).pathname ===
+          const currentSource = heroVideo.currentSrc || heroVideo.src;
+          if (!expectedSource || !currentSource) return false;
+          return new URL(currentSource).pathname ===
             new URL(expectedSource, childDocument.baseURI).pathname;
         };
         const revealLoadedHeroVideo = () => {
@@ -312,15 +328,67 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
             heroVideo.videoWidth > 0 &&
             heroVideo.videoHeight > 0
           ) {
+            window.clearTimeout(heroVideoLoadTimeout);
             heroVideo.style.opacity = "1";
           }
         };
-        const reportHeroVideoError = () => {
-          if (!heroLoadCancelled && isCurrentHeroSource()) {
-            console.warn("[home] No se pudo cargar el video seleccionado para el hero.", {
-              src: heroVideo.currentSrc,
+        const loadHeroVideoSource = (source: string, attempt: number) => {
+          window.clearTimeout(heroVideoLoadTimeout);
+          heroSourceAttempt = attempt;
+          heroVideo.style.opacity = "0";
+          heroVideo.pause();
+          heroVideo.removeAttribute("src");
+          heroVideo.load();
+          heroVideo.dataset.homeHeroSource = source;
+          heroVideo.preload = "auto";
+          heroVideo.removeAttribute("fetchpriority");
+          const requestUrl = new URL(source, childDocument.baseURI);
+          if (attempt > 0) requestUrl.searchParams.set("hero-retry", String(attempt));
+          heroVideo.src = requestUrl.href;
+          heroVideo.load();
+          heroVideoLoadTimeout = window.setTimeout(() => {
+            if (heroLoadCancelled || !isCurrentHeroSource()) return;
+            if (
+              heroVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+              heroVideo.videoWidth > 0 &&
+              heroVideo.videoHeight > 0
+            ) {
+              revealLoadedHeroVideo();
+              return;
+            }
+            handleHeroVideoFailure(source, attempt, "timeout");
+          }, isMobileDevice() ? 12000 : 20000);
+          void heroVideo.play().catch((error: unknown) => {
+            if (!heroLoadCancelled && isCurrentHeroSource()) {
+              console.warn("[home] El navegador no inició la reproducción automática del video.", {
+                error,
+                src: heroVideo.currentSrc || heroVideo.src,
+              });
+            }
+          });
+        };
+        const handleHeroVideoFailure = (source: string, attempt: number, reason: string) => {
+          if (heroLoadCancelled || !isCurrentHeroSource()) return;
+          window.clearTimeout(heroVideoLoadTimeout);
+          if (attempt < 1) {
+            console.warn("[home] El video del hero no quedó listo; se reintentará una vez.", {
+              reason,
+              src: heroVideo.currentSrc || heroVideo.src,
               mediaError: heroVideo.error?.message,
             });
+            loadHeroVideoSource(source, attempt + 1);
+            return;
+          }
+          console.warn("[home] No se pudo cargar el video del hero tras un reintento.", {
+            reason,
+            src: heroVideo.currentSrc || heroVideo.src,
+            mediaError: heroVideo.error?.message,
+          });
+        };
+        const reportHeroVideoError = () => {
+          if (!heroLoadCancelled && isCurrentHeroSource()) {
+            const source = heroVideo.dataset.homeHeroSource;
+            if (source) handleHeroVideoFailure(source, heroSourceAttempt, "media-error");
           }
         };
         heroVideo.addEventListener("loadeddata", revealLoadedHeroVideo);
@@ -332,32 +400,37 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
           childDocument.documentElement.classList.toggle("home-mobile-hero-video", isMobile);
           const nextSource = isMobile ? mobileSource : desktopSource;
           if (heroVideo.dataset.homeHeroSource === nextSource) return;
-          heroVideo.style.opacity = "0";
           heroVideo.muted = !audioEnabledRef.current;
-          heroVideo.pause();
-          heroVideo.removeAttribute("src");
-          heroVideo.load();
-          heroVideo.dataset.homeHeroSource = nextSource;
-          heroVideo.preload = "auto";
-          heroVideo.removeAttribute("fetchpriority");
-          heroVideo.src = nextSource;
-          heroVideo.load();
-          void heroVideo.play().catch((error: unknown) => {
-            if (!heroLoadCancelled && isCurrentHeroSource()) {
-              console.warn("[home] El navegador no inició la reproducción automática del video.", {
-                error,
-                src: heroVideo.currentSrc || heroVideo.src,
-              });
-            }
-          });
+          loadHeroVideoSource(nextSource, 0);
         };
+        refreshHeroVideoAfterLoader = () => {
+          const expectedSource = isMobileDevice() ? mobileSource : desktopSource;
+          const currentPath = heroVideo.currentSrc
+            ? new URL(heroVideo.currentSrc).pathname
+            : "";
+          const expectedPath = new URL(expectedSource, childDocument.baseURI).pathname;
+          if (
+            heroVideo.dataset.homeHeroSource !== expectedSource ||
+            (currentPath && currentPath !== expectedPath) ||
+            heroVideo.error
+          ) {
+            delete heroVideo.dataset.homeHeroSource;
+            updateHeroVideoSource();
+          }
+        };
+        if (loaderFinished) refreshHeroVideoAfterLoader();
         mobileViewport.addEventListener("change", updateHeroVideoSource);
         iframeMobileViewport.addEventListener("change", updateHeroVideoSource);
+        coarsePointer.addEventListener("change", updateHeroVideoSource);
+        iframeCoarsePointer.addEventListener("change", updateHeroVideoSource);
         updateHeroVideoSource();
         removeHeroViewportListener = () => {
           heroLoadCancelled = true;
+          window.clearTimeout(heroVideoLoadTimeout);
           mobileViewport.removeEventListener("change", updateHeroVideoSource);
           iframeMobileViewport.removeEventListener("change", updateHeroVideoSource);
+          coarsePointer.removeEventListener("change", updateHeroVideoSource);
+          iframeCoarsePointer.removeEventListener("change", updateHeroVideoSource);
           heroVideo.removeEventListener("loadeddata", revealLoadedHeroVideo);
           heroVideo.removeEventListener("canplay", revealLoadedHeroVideo);
           heroVideo.removeEventListener("playing", revealLoadedHeroVideo);
@@ -742,6 +815,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       window.clearTimeout(preloadTimeout);
       window.clearTimeout(fallbackTimeout);
       cleanupFrame?.();
+      refreshHeroVideoAfterLoader = undefined;
       document.documentElement.classList.remove("home-scrollbar-hidden");
     };
   }, []);

@@ -166,7 +166,7 @@ export function assetUrl(path: string): string {
 
 /** URL de la home de Framer (iframe) conservando su cache-buster. */
 export function framerHomeUrl(): string {
-  return assetUrl("/framer-home.html") + "?revision=20261104-mobile-video-source-fix-2";
+  return assetUrl("/framer-home.html") + "?revision=20261104-mobile-video-source-fix-3";
 }
 
 /**
