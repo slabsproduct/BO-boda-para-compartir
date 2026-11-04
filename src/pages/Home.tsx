@@ -49,11 +49,10 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
     let fallbackTimeout: number | undefined;
     let cleanupFrame: (() => void) | undefined;
     let iframeLoaded = false;
-    let heroVideoReady = false;
     let hideLoaderScheduled = false;
 
     const hideLoaderWhenReady = () => {
-      if (!iframeLoaded || !heroVideoReady || hideLoaderScheduled) return;
+      if (!iframeLoaded || hideLoaderScheduled) return;
       hideLoaderScheduled = true;
       const minimumLoadingTime = 1800;
       const remainingLoadingTime = Math.max(0, minimumLoadingTime - (Date.now() - loadingStartedAt));
@@ -196,7 +195,22 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
         const mobileViewport = window.matchMedia("(max-width: 1023.98px)");
         const iframeMobileViewport = childWindow.matchMedia("(max-width: 1023.98px)");
         const desktopSource = `${assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4")}?v=20261104-desktop-7`;
-        const mobileSource = `${assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc-1.mp4")}?v=20261104-square-4`;
+        const mobileSource = `${assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc-1.mp4")}?v=20261104-square-5`;
+        const isMobileDevice = () => {
+          const userAgent = `${window.navigator.userAgent} ${childWindow.navigator.userAgent}`;
+          const mobileUserAgent = /android|iphone|ipad|ipod|iemobile|windows phone|opera mini/i.test(userAgent);
+          const touchPoints = Math.max(
+            window.navigator.maxTouchPoints || 0,
+            childWindow.navigator.maxTouchPoints || 0
+          );
+          const screenWidth = Math.min(window.screen.width, childWindow.screen.width);
+          return (
+            mobileViewport.matches ||
+            iframeMobileViewport.matches ||
+            mobileUserAgent ||
+            (touchPoints > 0 && screenWidth <= 1280)
+          );
+        };
         const videoContainer = heroVideo.parentElement;
         if (!videoContainer) {
           throw new Error("[home] No se encontró el contenedor del video del hero.");
@@ -284,93 +298,57 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
         heroVideo.style.transition = "opacity 450ms ease";
         heroVideo.style.objectFit = "cover";
         let heroLoadCancelled = false;
-        let heroLoadSequence = 0;
-        const loadHeroVideoWithRetry = async (source: string, sequence: number): Promise<boolean> => {
-          for (let attempt = 0; attempt < 3 && !heroLoadCancelled && sequence === heroLoadSequence; attempt += 1) {
-            const ready = await new Promise<boolean>((resolve) => {
-              let settled = false;
-              let timeout: number;
-              const finish = (isReady: boolean) => {
-                if (settled) return;
-                settled = true;
-                window.clearTimeout(timeout);
-                heroVideo.removeEventListener("loadeddata", checkReady);
-                heroVideo.removeEventListener("canplay", checkReady);
-                heroVideo.removeEventListener("playing", checkReady);
-                heroVideo.removeEventListener("error", handleError);
-                resolve(isReady);
-              };
-              const checkReady = () => {
-                const currentSource = heroVideo.currentSrc;
-                const correctSource = currentSource
-                  ? new URL(currentSource).pathname === new URL(source, childDocument.baseURI).pathname
-                  : false;
-                if (
-                  correctSource &&
-                  heroVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
-                  heroVideo.videoWidth > 0 &&
-                  heroVideo.videoHeight > 0
-                ) {
-                  finish(true);
-                }
-              };
-              const handleError = () => finish(false);
-
-              heroVideo.addEventListener("loadeddata", checkReady);
-              heroVideo.addEventListener("canplay", checkReady);
-              heroVideo.addEventListener("playing", checkReady);
-              heroVideo.addEventListener("error", handleError);
-              timeout = window.setTimeout(
-                () => finish(false),
-                source === desktopSource ? 15000 : 4500
-              );
-              heroVideo.src = source;
-              heroVideo.load();
-              void heroVideo.play().catch((error: unknown) => {
-                if (!heroLoadCancelled && sequence === heroLoadSequence) {
-                  console.warn("[home] El navegador no inició la reproducción automática del video.", {
-                    error,
-                    src: heroVideo.currentSrc || heroVideo.src,
-                  });
-                }
-                checkReady();
-              });
-              checkReady();
-            });
-
-            if (sequence !== heroLoadSequence || heroLoadCancelled) return false;
-            if (ready) return true;
-            if (attempt < 2 && !heroLoadCancelled && sequence === heroLoadSequence) {
-              await new Promise((resolve) => window.setTimeout(resolve, 350 * (attempt + 1)));
-            }
+        const isCurrentHeroSource = () => {
+          const expectedSource = heroVideo.dataset.homeHeroSource;
+          if (!expectedSource || !heroVideo.currentSrc) return false;
+          return new URL(heroVideo.currentSrc).pathname ===
+            new URL(expectedSource, childDocument.baseURI).pathname;
+        };
+        const revealLoadedHeroVideo = () => {
+          if (
+            !heroLoadCancelled &&
+            isCurrentHeroSource() &&
+            heroVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+            heroVideo.videoWidth > 0 &&
+            heroVideo.videoHeight > 0
+          ) {
+            heroVideo.style.opacity = "1";
           }
-
-          if (!heroLoadCancelled && sequence === heroLoadSequence) {
-            console.warn("[home] El video del hero no pudo validarse tras tres intentos.", {
-              src: heroVideo.currentSrc || heroVideo.src,
-              readyState: heroVideo.readyState,
-              networkState: heroVideo.networkState,
-              videoWidth: heroVideo.videoWidth,
-              videoHeight: heroVideo.videoHeight,
+        };
+        const reportHeroVideoError = () => {
+          if (!heroLoadCancelled && isCurrentHeroSource()) {
+            console.warn("[home] No se pudo cargar el video seleccionado para el hero.", {
+              src: heroVideo.currentSrc,
               mediaError: heroVideo.error?.message,
             });
           }
-          return false;
         };
+        heroVideo.addEventListener("loadeddata", revealLoadedHeroVideo);
+        heroVideo.addEventListener("canplay", revealLoadedHeroVideo);
+        heroVideo.addEventListener("playing", revealLoadedHeroVideo);
+        heroVideo.addEventListener("error", reportHeroVideoError);
         const updateHeroVideoSource = () => {
-          const isMobile = mobileViewport.matches || iframeMobileViewport.matches;
+          const isMobile = isMobileDevice();
           childDocument.documentElement.classList.toggle("home-mobile-hero-video", isMobile);
+          const nextSource = isMobile ? mobileSource : desktopSource;
+          if (heroVideo.dataset.homeHeroSource === nextSource) return;
           heroVideo.style.opacity = "0";
           heroVideo.muted = !audioEnabledRef.current;
-          const nextSource = isMobile ? mobileSource : desktopSource;
-          const sequence = ++heroLoadSequence;
+          heroVideo.pause();
+          heroVideo.removeAttribute("src");
+          heroVideo.load();
+          heroVideo.dataset.homeHeroSource = nextSource;
           heroVideo.preload = "auto";
           heroVideo.removeAttribute("fetchpriority");
-          void loadHeroVideoWithRetry(nextSource, sequence).then((ready) => {
-            if (sequence !== heroLoadSequence || heroLoadCancelled) return;
-            heroVideo.style.opacity = ready ? "1" : "0";
-            heroVideoReady = true;
-            hideLoaderWhenReady();
+          heroVideo.src = nextSource;
+          heroVideo.load();
+          void heroVideo.play().catch((error: unknown) => {
+            if (!heroLoadCancelled && isCurrentHeroSource()) {
+              console.warn("[home] El navegador no inició la reproducción automática del video.", {
+                error,
+                src: heroVideo.currentSrc || heroVideo.src,
+              });
+            }
           });
         };
         mobileViewport.addEventListener("change", updateHeroVideoSource);
@@ -380,10 +358,12 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
           heroLoadCancelled = true;
           mobileViewport.removeEventListener("change", updateHeroVideoSource);
           iframeMobileViewport.removeEventListener("change", updateHeroVideoSource);
+          heroVideo.removeEventListener("loadeddata", revealLoadedHeroVideo);
+          heroVideo.removeEventListener("canplay", revealLoadedHeroVideo);
+          heroVideo.removeEventListener("playing", revealLoadedHeroVideo);
+          heroVideo.removeEventListener("error", reportHeroVideoError);
           childDocument.documentElement.classList.remove("home-mobile-hero-video");
         };
-      } else {
-        heroVideoReady = true;
       }
 
       childDocument.documentElement.lang = "es";
@@ -716,7 +696,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
       window.addEventListener("scroll", syncFrameScroll, { passive: true });
       resizeFrame();
 
-      // Esperar recursos iniciales del iframe y una primera imagen de video decodificada.
+      // Esperar el documento del iframe, pero no bloquear la página por el video.
       const markIframeLoaded = () => {
         iframeLoaded = true;
         hideLoaderWhenReady();

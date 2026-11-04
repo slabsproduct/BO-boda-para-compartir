@@ -35454,6 +35454,7 @@ var Ap = (e) => {
   (_(() => {
     let a = o.current;
     if (!a) return;
+    if (isManagedHeroVideo) return;
     let c = v.startsWith(`/`) ? v.slice(1) : v,
       d = `assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4`,
       f = /\.webm(?:[?#]|$)/i.test(c),
