@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Music2, Pause } from "lucide-react";
+import { Volume2, VolumeX } from "lucide-react";
 import { assetUrl, framerHomeUrl, rsvpViewUrl, rewriteLocalAssetUrl } from "../lib/base";
 
 interface HomeProps {
@@ -9,7 +9,8 @@ interface HomeProps {
 
 export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
   const frameRef = useRef<HTMLIFrameElement>(null);
-  const musicRef = useRef<HTMLAudioElement>(null);
+  const heroVideoRef = useRef<HTMLVideoElement>(null);
+  const audioEnabledRef = useRef(false);
   const onRsvpClickRef = useRef(onRsvpClick);
   const [frameHeight, setFrameHeight] = useState(() => window.innerHeight);
   const [isLoading, setIsLoading] = useState(true);
@@ -18,20 +19,23 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
   onRsvpClickRef.current = onRsvpClick;
 
   const toggleMusic = async () => {
-    const audio = musicRef.current;
-    if (!audio) return;
-
-    if (!audio.paused) {
-      audio.pause();
-      return;
-    }
-
+    const video = heroVideoRef.current;
+    if (!video) return;
     setMusicPlaybackError(false);
-    try {
-      await audio.play();
-    } catch (error) {
-      console.error("[home] No se pudo reproducir la música del hero.", error);
-      setMusicPlaybackError(true);
+    const enableAudio = video.muted;
+    video.muted = !enableAudio;
+    audioEnabledRef.current = enableAudio;
+    setIsMusicPlaying(enableAudio);
+    if (enableAudio && video.paused) {
+      try {
+        await video.play();
+      } catch (error) {
+        video.muted = true;
+        audioEnabledRef.current = false;
+        setIsMusicPlaying(false);
+        console.error("[home] No se pudo activar el audio sincronizado del video.", error);
+        setMusicPlaybackError(true);
+      }
     }
   };
 
@@ -62,7 +66,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
     fallbackTimeout = window.setTimeout(() => {
       console.warn("[home] Se agotó la espera máxima de carga; se ocultará el preloader.");
       setIsLoading(false);
-    }, 20000);
+    }, 60000);
 
     const handleLoad = () => {
       const childDocument = frame.contentDocument;
@@ -145,15 +149,164 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
         contactSection.append(contactMessage, contactButton);
         faqSection.appendChild(contactSection);
       }
+      let lottieLoaderStyles = childDocument.querySelector<HTMLStyleElement>(
+        "#home-lottie-loader-styles"
+      );
+      if (!lottieLoaderStyles) {
+        lottieLoaderStyles = childDocument.createElement("style");
+        lottieLoaderStyles.id = "home-lottie-loader-styles";
+        lottieLoaderStyles.textContent = `
+          .home-lottie-loader {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: #363b1f;
+            background: rgba(250, 246, 242, 0.68);
+            font: 500 14px/1.3 Inter, sans-serif;
+            pointer-events: none;
+          }
+          .home-lottie-loader-spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid rgba(54, 59, 31, 0.2);
+            border-top-color: #6e0d23;
+            border-radius: 50%;
+            animation: home-lottie-loader-spin 800ms linear infinite;
+          }
+          @keyframes home-lottie-loader-spin {
+            to { transform: rotate(360deg); }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .home-lottie-loader-spinner { animation: none; }
+          }
+        `;
+        childDocument.head.appendChild(lottieLoaderStyles);
+      }
       let removeHeroViewportListener: (() => void) | undefined;
       const heroVideo = childDocument.querySelector<HTMLVideoElement>(
         ".framer-15p17nr-container video"
       );
       if (heroVideo) {
-        const mobileViewport = childWindow.matchMedia("(max-width: 809.98px)");
-        const desktopSource = assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4");
-        const mobileSource = assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc-1.mp4");
+        heroVideoRef.current = heroVideo;
+        const mobileViewport = window.matchMedia("(max-width: 1023.98px)");
+        const iframeMobileViewport = childWindow.matchMedia("(max-width: 1023.98px)");
+        const desktopSource = `${assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4")}?v=20261104-desktop-6`;
+        const mobileSource = `${assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc-1.mp4")}?v=20261104-square-3`;
+        const videoContainer = heroVideo.parentElement;
+        if (!videoContainer) {
+          throw new Error("[home] No se encontró el contenedor del video del hero.");
+        }
+        videoContainer.style.position = "relative";
+        videoContainer.style.overflow = "hidden";
+
+        let fallbackVideo = videoContainer.querySelector<HTMLVideoElement>(".home-hero-placeholder");
+        if (!fallbackVideo) {
+          fallbackVideo = childDocument.createElement("video");
+          fallbackVideo.className = "home-hero-placeholder";
+          fallbackVideo.setAttribute("aria-hidden", "true");
+          videoContainer.insertBefore(fallbackVideo, heroVideo);
+        }
+        const fallbackSource = assetUrl("/assets/misc/old nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4");
+        if (fallbackVideo.getAttribute("src") !== fallbackSource) {
+          fallbackVideo.src = fallbackSource;
+        }
+        fallbackVideo.autoplay = true;
+        fallbackVideo.muted = true;
+        fallbackVideo.loop = true;
+        fallbackVideo.playsInline = true;
+        fallbackVideo.preload = "auto";
+        fallbackVideo.setAttribute("aria-hidden", "true");
+        if (fallbackVideo.paused) {
+          void fallbackVideo.play().catch((error: unknown) => {
+            console.warn("[home] No se pudo reproducir el video de respaldo del hero.", error);
+          });
+        }
+
+        let loadingIndicator = videoContainer.querySelector<HTMLElement>(".home-hero-loading");
+        if (!loadingIndicator) {
+          loadingIndicator = childDocument.createElement("div");
+          loadingIndicator.className = "home-hero-loading";
+          loadingIndicator.setAttribute("role", "status");
+          loadingIndicator.setAttribute("aria-label", "Cargando video");
+          loadingIndicator.innerHTML = '<span class="home-hero-loading-spinner"></span>';
+          videoContainer.appendChild(loadingIndicator);
+        }
+
+        let heroDisplayStyles = childDocument.querySelector<HTMLStyleElement>(
+          "#home-hero-video-loading-styles"
+        );
+        if (!heroDisplayStyles) {
+          heroDisplayStyles = childDocument.createElement("style");
+          heroDisplayStyles.id = "home-hero-video-loading-styles";
+          heroDisplayStyles.textContent = `
+            .home-hero-placeholder {
+              position: absolute;
+              inset: 0;
+              z-index: 0;
+              width: 100%;
+              height: 100%;
+              object-fit: cover;
+              object-position: center;
+              opacity: 0.55;
+              transition: opacity 450ms ease;
+              pointer-events: none;
+            }
+            .home-hero-loading {
+              position: absolute;
+              inset: 0;
+              z-index: 2;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              background: rgba(26, 29, 19, 0.12);
+              transition: opacity 250ms ease;
+              pointer-events: none;
+            }
+            .home-hero-loading[hidden] {
+              display: none;
+            }
+            .home-hero-loading-spinner {
+              width: 36px;
+              height: 36px;
+              border: 3px solid rgba(255, 255, 255, 0.45);
+              border-top-color: #fff;
+              border-radius: 50%;
+              box-shadow: 0 1px 8px rgba(0, 0, 0, 0.2);
+              animation: home-hero-spin 800ms linear infinite;
+            }
+            @keyframes home-hero-spin {
+              to { transform: rotate(360deg); }
+            }
+            @media (prefers-reduced-motion: reduce) {
+              .home-hero-placeholder,
+              .home-hero-loading,
+              .home-hero-loading-spinner {
+                transition: none;
+                animation: none;
+              }
+            }
+          `;
+          childDocument.head.appendChild(heroDisplayStyles);
+        }
+
         let heroLoadCancelled = false;
+        const showLoadedHeroVideo = (loaded: boolean) => {
+          heroVideo.style.opacity = loaded ? "1" : "0";
+          fallbackVideo.style.opacity = loaded ? "0" : "0.55";
+          loadingIndicator.hidden = loaded;
+          if (!loaded) {
+            void fallbackVideo.play().catch((error: unknown) => {
+              console.warn("[home] No se pudo reproducir el video de respaldo del hero.", error);
+            });
+          }
+        };
+        showLoadedHeroVideo(false);
+
         let responsiveStyles = childDocument.querySelector<HTMLStyleElement>(
           "#home-responsive-hero-video-styles"
         );
@@ -161,22 +314,80 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
           responsiveStyles = childDocument.createElement("style");
           responsiveStyles.id = "home-responsive-hero-video-styles";
           responsiveStyles.textContent = `
-            @media (max-width: 809.98px) {
-              .framer-oargH .framer-15p17nr-container { aspect-ratio: 1 / 1 !important; }
+              @media (min-width: 1024px) {
+                .framer-oargH .framer-15p17nr-container video {
+                  -webkit-mask-image:
+                    linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 10px), transparent),
+                    linear-gradient(to bottom, transparent, #000 10px, #000 calc(100% - 10px), transparent);
+                  -webkit-mask-composite: source-in;
+                  mask-image:
+                    linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 10px), transparent),
+                    linear-gradient(to bottom, transparent, #000 10px, #000 calc(100% - 10px), transparent);
+                  mask-composite: intersect;
+                }
+              }
+              .home-mobile-hero-video .framer-ZMBes {
+                width: 100% !important;
+                overflow-x: clip;
+            }
+            .home-mobile-hero-video .framer-oargH .framer-n19xkw {
+              top: 100px !important;
+              bottom: auto !important;
+              left: 50% !important;
+              width: min(600px, calc(100% - 32px)) !important;
+              max-width: calc(100% - 32px) !important;
+              height: auto !important;
+              aspect-ratio: 1 / 1 !important;
+              transform: translateX(-50%) !important;
+              overflow: hidden;
+            }
+            .home-mobile-hero-video .framer-oargH .framer-15p17nr-container {
+              position: absolute !important;
+              inset: 0 !important;
+              width: 100% !important;
+              height: 100% !important;
+              aspect-ratio: 1 / 1 !important;
+            }
+            .home-mobile-hero-video .framer-oargH .framer-15p17nr-container video {
+              width: 100% !important;
+              height: 100% !important;
+              object-fit: contain !important;
+              object-position: center !important;
+              background: transparent !important;
+              -webkit-mask-image: linear-gradient(
+                to right,
+                transparent 0,
+                #000 4px,
+                #000 calc(100% - 4px),
+                transparent 100%
+              );
+              mask-image: linear-gradient(
+                to right,
+                transparent 0,
+                #000 4px,
+                #000 calc(100% - 4px),
+                transparent 100%
+              );
             }
           `;
           childDocument.head.appendChild(responsiveStyles);
         }
 
+        heroVideo.removeAttribute("src");
+        heroVideo.preload = "none";
+        heroVideo.load();
         heroVideo.autoplay = true;
         heroVideo.muted = true;
         heroVideo.loop = true;
         heroVideo.playsInline = true;
-        heroVideo.preload = "auto";
         heroVideo.style.opacity = "1";
         heroVideo.style.visibility = "visible";
         heroVideo.style.zIndex = "1";
+        heroVideo.style.position = "relative";
+        heroVideo.style.transition = "opacity 450ms ease";
+        heroVideo.style.objectFit = "cover";
         let heroLoadSequence = 0;
+        let desktopVideoTimeout: number | undefined;
         const loadHeroVideoWithRetry = async (source: string, sequence: number): Promise<boolean> => {
           for (let attempt = 0; attempt < 3 && !heroLoadCancelled && sequence === heroLoadSequence; attempt += 1) {
             const ready = await new Promise<boolean>((resolve) => {
@@ -212,7 +423,10 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
               heroVideo.addEventListener("canplay", checkReady);
               heroVideo.addEventListener("playing", checkReady);
               heroVideo.addEventListener("error", handleError);
-              timeout = window.setTimeout(() => finish(false), 4500);
+              timeout = window.setTimeout(
+                () => finish(false),
+                source === desktopSource ? 15000 : 4500
+              );
               heroVideo.src = source;
               heroVideo.load();
               void heroVideo.play().catch((error: unknown) => {
@@ -247,19 +461,43 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
           return false;
         };
         const updateHeroVideoSource = () => {
-          const nextSource = mobileViewport.matches ? mobileSource : desktopSource;
+          const isMobile = mobileViewport.matches || iframeMobileViewport.matches;
+          window.clearTimeout(desktopVideoTimeout);
+          childDocument.documentElement.classList.toggle("home-mobile-hero-video", isMobile);
+          showLoadedHeroVideo(false);
+          heroVideo.muted = !audioEnabledRef.current;
+          const nextSource = isMobile ? mobileSource : desktopSource;
           const sequence = ++heroLoadSequence;
-          void loadHeroVideoWithRetry(nextSource, sequence).then(() => {
+          const startLoading = () => {
             if (sequence !== heroLoadSequence || heroLoadCancelled) return;
-            heroVideoReady = true;
-            hideLoaderWhenReady();
-          });
+            heroVideo.preload = "auto";
+            if (isMobile) {
+              heroVideo.removeAttribute("fetchpriority");
+            } else {
+              heroVideo.setAttribute("fetchpriority", "low");
+            }
+            void loadHeroVideoWithRetry(nextSource, sequence).then((ready) => {
+              if (sequence !== heroLoadSequence || heroLoadCancelled) return;
+              showLoadedHeroVideo(ready);
+              heroVideoReady = true;
+              hideLoaderWhenReady();
+            });
+          };
+          if (isMobile) {
+            startLoading();
+          } else {
+            desktopVideoTimeout = window.setTimeout(startLoading, 1500);
+          }
         };
         mobileViewport.addEventListener("change", updateHeroVideoSource);
+        iframeMobileViewport.addEventListener("change", updateHeroVideoSource);
         updateHeroVideoSource();
         removeHeroViewportListener = () => {
           heroLoadCancelled = true;
+          window.clearTimeout(desktopVideoTimeout);
           mobileViewport.removeEventListener("change", updateHeroVideoSource);
+          iframeMobileViewport.removeEventListener("change", updateHeroVideoSource);
+          childDocument.documentElement.classList.remove("home-mobile-hero-video");
         };
       } else {
         heroVideoReady = true;
@@ -613,6 +851,7 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
 
       cleanupFrame = () => {
         removeHeroViewportListener?.();
+        if (heroVideoRef.current?.ownerDocument === childDocument) heroVideoRef.current = null;
         window.clearInterval(countdownTimer);
         flipCardMutationObserver.disconnect();
         flipCardTimers.forEach((timer) => window.clearTimeout(timer));
@@ -664,31 +903,15 @@ export const Home: React.FC<HomeProps> = ({ onRsvpClick, onAdminClick }) => {
         className="fixed inset-x-0 top-0 z-40 block w-full border-0"
         style={{ height: "100vh" }}
       />
-      <audio
-        ref={musicRef}
-        src={assetUrl("/assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4")}
-        preload="none"
-        loop
-        onPlay={() => setIsMusicPlaying(true)}
-        onPause={() => setIsMusicPlaying(false)}
-        onError={() => {
-          setIsMusicPlaying(false);
-          setMusicPlaybackError(true);
-          console.error("[home] No se pudo cargar la pista de audio del video del hero.", {
-            src: musicRef.current?.currentSrc,
-            mediaError: musicRef.current?.error?.message,
-          });
-        }}
-      />
       <button
         type="button"
         className="site-music-button"
         onClick={() => void toggleMusic()}
-        aria-label={musicPlaybackError ? "No se pudo cargar la música; intentar reproducir" : isMusicPlaying ? "Pausar música" : "Reproducir música"}
+        aria-label={musicPlaybackError ? "No se pudo activar el audio; volver a intentar" : isMusicPlaying ? "Silenciar audio del video" : "Activar audio sincronizado del video"}
         aria-pressed={isMusicPlaying}
-        title={musicPlaybackError ? "No se pudo cargar la música; vuelve a tocar para intentar" : isMusicPlaying ? "Pausar música" : "Reproducir música"}
+        title={musicPlaybackError ? "No se pudo activar el audio; vuelve a tocar para intentar" : isMusicPlaying ? "Silenciar audio del video" : "Activar audio sincronizado del video"}
       >
-        {isMusicPlaying ? <Pause aria-hidden="true" /> : <Music2 aria-hidden="true" />}
+        {isMusicPlaying ? <Volume2 aria-hidden="true" /> : <VolumeX aria-hidden="true" />}
       </button>
     </div>
   );

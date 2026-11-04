@@ -35450,6 +35450,7 @@ var Sp,
 var Ap = (e) => {
   let { src: v, loop: t = !0, autoplay: n = !0 } = e,
     o = R(null);
+  let isManagedHeroVideo = v.endsWith(`nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4`);
   (_(() => {
     let a = o.current;
     if (!a) return;
@@ -35563,12 +35564,16 @@ var Ap = (e) => {
   }), [v, t, n]);
   return p(`video`, {
     ref: o,
-    src: v.startsWith(`/`) ? v.slice(1) : v,
-    autoPlay: n,
+    src: isManagedHeroVideo
+      ? `assets/misc/old nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4`
+      : v.startsWith(`/`)
+        ? v.slice(1)
+        : v,
+    autoPlay: isManagedHeroVideo ? !1 : n,
     loop: t,
     muted: !0,
     playsInline: !0,
-    preload: `auto`,
+    preload: isManagedHeroVideo ? `none` : `auto`,
     disablePictureInPicture: !0,
     controlsList: `nodownload`,
     "webkit-playsinline": ``,
@@ -35578,7 +35583,11 @@ var Ap = (e) => {
   });
 };
 function LottieWhenVisible(e) {
-  let [t, n] = l(null), [r, i] = l(!1);
+  let [t, n] = l(null),
+    [r, i] = l(!1),
+    [a, o] = l(!1),
+    [c, u] = l(!1),
+    [d, s] = l(null);
   return (
     _(() => {
       if (!t || r) return;
@@ -35601,25 +35610,59 @@ function LottieWhenVisible(e) {
     }, [t, r]),
     f(`div`, {
       ref: n,
-      style: { width: `100%`, height: `100%` },
-      children: r
-        ? p(
-            Ep,
-            {
-              src: e.src,
-              autoplay: e.autoplay,
-              loop: e.loop,
-              mode: e.mode,
-              playOnHover: e.playOnHover,
-              backgroundColor: e.backgroundColor,
-              speed: e.speed,
-              dotLottieRefCallback: e.dotLottieRefCallback,
-              style: e.style,
-              renderConfig: e.renderConfig,
-            },
-            e.src
-          )
-        : null,
+      style: { width: `100%`, height: `100%`, position: `relative` },
+      children: [
+        r
+          ? p(
+              Ep,
+              {
+                src: e.src,
+                autoplay: e.autoplay,
+                loop: e.loop,
+                mode: e.mode,
+                playOnHover: e.playOnHover,
+                backgroundColor: e.backgroundColor,
+                speed: e.speed,
+                dotLottieRefCallback: (t) => {
+                  if (t && d !== t) {
+                    t.addEventListener(`load`, () => {
+                      o(!0);
+                      u(!1);
+                    });
+                    t.addEventListener(`loadError`, () => u(!0));
+                    t.addEventListener(`renderError`, () => u(!0));
+                    s(t);
+                  }
+                  e.dotLottieRefCallback?.(t);
+                },
+                style: e.style,
+                renderConfig: {
+                  ...e.renderConfig,
+                  devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+                  freezeOnOffscreen: !0,
+                },
+              },
+              e.src
+            )
+          : null,
+        !a
+          ? f(`div`, {
+              className: `home-lottie-loader`,
+              role: `status`,
+              "aria-live": `polite`,
+              children: [
+                f(`span`, {
+                  className: `home-lottie-loader-spinner`,
+                  "aria-hidden": !0,
+                  style: c ? { display: `none` } : void 0,
+                }),
+                f(`span`, {
+                  children: c ? `No se pudo cargar la animaci\u00f3n` : `Cargando animaci\u00f3n...`,
+                }),
+              ],
+            })
+          : null,
+      ],
     })
   );
 }
@@ -35654,12 +35697,14 @@ function wp(e) {
       }),
     });
   // Keep the video as the direct Suspense child so its client tree matches Framer SSR.
-  if (typeof a === `string` && /\.(mp4|webm|m4v|mov)([?#].*)?$/i.test(a))
+  if (typeof a === `string` && /\.(mp4|webm|m4v|mov)([?#].*)?$/i.test(a)) {
+    let isManagedHeroVideo = a.endsWith(`nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4`);
     return p(Ap, {
       src: a,
       loop: e.loop !== !1,
-      autoplay: e.autoplay !== !1,
+      autoplay: !isManagedHeroVideo && e.autoplay !== !1,
     });
+  }
   let [o, s] = l(!1);
   (_(() => {
     if ((s(!1), !n)) return;
@@ -41326,9 +41371,9 @@ e(() => {
                                     loop: !0,
                                     progress: 0,
                                     speed: 1,
-                                    srcFile: `assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c.lottie`,
+                                    srcFile: `assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c.lottie?v=20261104-optimized-2`,
                                     srcType: `file`,
-                                    srcUrl: `assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c.lottie`,
+                                    srcUrl: `assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c.lottie?v=20261104-optimized-2`,
                                     video: !0,
                                     posterUrl: ``,
                                     style: { height: `100%`, width: `100%` },
