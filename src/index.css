@@ -234,3 +234,116 @@ body {
   background: #363B1F;
   border-radius: 999px;
 }
+
+@media (min-width: 810px) {
+  html.home-scrollbar-hidden,
+  html.home-scrollbar-hidden body {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  html.home-scrollbar-hidden::-webkit-scrollbar,
+  html.home-scrollbar-hidden body::-webkit-scrollbar {
+    display: none;
+    width: 0;
+  }
+}
+
+.site-music-button {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 55;
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 50%;
+  background: #6E0D23;
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+  transition: transform 160ms ease, background-color 160ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.site-music-button:hover {
+  transform: scale(1.05);
+  background: #4A0817;
+}
+
+.site-music-button svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 2;
+}
+
+@media (max-width: 809.98px) {
+  .site-music-button {
+    right: 14px;
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    width: 42px;
+    height: 42px;
+  }
+
+  .site-music-button svg {
+    width: 19px;
+    height: 19px;
+  }
+}
+
+@media (max-width: 809.98px) {
+  .rsvp-page {
+    padding: 12px;
+  }
+
+  .rsvp-page .rsvp-auth-card,
+  .rsvp-page .rsvp-form-card,
+  .rsvp-page .rsvp-success-card {
+    max-width: none;
+    padding: 20px 16px;
+    border-radius: 24px;
+  }
+
+  .rsvp-page p,
+  .rsvp-page label,
+  .rsvp-page button,
+  .rsvp-page input,
+  .rsvp-page select,
+  .rsvp-page textarea {
+    font-size: max(12px, 1em) !important;
+    line-height: 1.4;
+  }
+
+  .rsvp-page span {
+    font-size: max(11px, 1em) !important;
+    line-height: 1.35;
+  }
+
+  .rsvp-page button {
+    white-space: normal;
+  }
+
+  .rsvp-page #rsvp-code {
+    min-height: 68px;
+    padding: 16px 10px;
+    font-size: 16px !important;
+    letter-spacing: 0.12em;
+  }
+
+  .rsvp-page #btn-validate-code {
+    min-height: 60px;
+  }
+
+  .rsvp-page .rsvp-auth-card {
+    padding: 24px 18px;
+  }
+
+  .rsvp-page .rsvp-intro {
+    width: 100%;
+    margin-inline: auto;
+    text-align: center;
+    font-size: 8.4px !important;
+  }
+}

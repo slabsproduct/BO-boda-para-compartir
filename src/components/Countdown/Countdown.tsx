@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 
 export const Countdown: React.FC = () => {
-  // Wedding Date: April 03, 2027 at 16:00:00 (Mendoza, Argentina)
-  const targetDate = new Date("2027-04-03T16:00:00");
+  // Wedding Date: April 03, 2027 at 15:30:00 (Mendoza, Argentina)
+  const targetDate = new Date("2027-04-03T15:30:00");
   
   const [timeLeft, setTimeLeft] = useState({
     days: 0,

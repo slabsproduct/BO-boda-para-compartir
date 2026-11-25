@@ -8,7 +8,7 @@ export const Timeline: React.FC = () => {
 
   const timelineData: TimelineItem[] = [
     {
-      time: "Sábado, 03 de Abril — 16:00hs",
+      time: "Sábado, 03 de Abril — 15:30hs",
       title: "La Ceremonia",
       description: "¡El momento más esperado! Nos daremos el sí junto a ustedes, frente a la imponente Cordillera de los Andes y el dique Potrerillos.",
       icon: "Sparkles",

@@ -1,0 +1,117 @@
+{
+  "invitations": [
+    {
+      "code": "MARISIMON",
+      "names": "Mariángel & Simón",
+      "passes": 2,
+      "status": "confirmed",
+      "updatedAt": "2026-10-27T17:25:12.025Z",
+      "guests": [
+        {
+          "name": "Mariángel",
+          "isAttending": false,
+          "dietaryRestrictions": "none",
+          "needsTransport": true,
+          "transportLocation": "Chacras de Coria"
+        },
+        {
+          "name": "Simón",
+          "isAttending": false,
+          "dietaryRestrictions": "none",
+          "needsTransport": false,
+          "transportLocation": "Mendoza Centro (Plaza Independencia)"
+        }
+      ]
+    },
+    {
+      "code": "MAALWINES",
+      "names": "Santi & Maite",
+      "passes": 2,
+      "status": "confirmed",
+      "updatedAt": "2026-10-27T16:56:06.143Z",
+      "guests": [
+        {
+          "name": "Santi",
+          "isAttending": true,
+          "dietaryRestrictions": "none",
+          "needsTransport": true,
+          "transportLocation": "Mendoza Centro (Plaza Independencia)"
+        },
+        {
+          "name": "Maite",
+          "isAttending": true,
+          "dietaryRestrictions": "vegetarian",
+          "needsTransport": true,
+          "transportLocation": "Mendoza Centro (Plaza Independencia)"
+        }
+      ]
+    },
+    {
+      "code": "FAMILIA2026",
+      "names": "Familia Pérez",
+      "passes": 4,
+      "status": "pending",
+      "guests": [
+        {
+          "name": "Carlos Pérez",
+          "isAttending": true,
+          "dietaryRestrictions": "celiac"
+        },
+        {
+          "name": "Lucía de Pérez",
+          "isAttending": true,
+          "dietaryRestrictions": "none"
+        },
+        {
+          "name": "Mateo Pérez",
+          "isAttending": true,
+          "dietaryRestrictions": "none"
+        },
+        {
+          "name": "Sofía Pérez",
+          "isAttending": true,
+          "dietaryRestrictions": "none"
+        }
+      ]
+    },
+    {
+      "code": "MILULOVER",
+      "names": "Fanáticos de Milu",
+      "passes": 2,
+      "status": "declined",
+      "updatedAt": "2026-10-27T16:44:03.795Z",
+      "guests": [
+        {
+          "name": "Diego Fernández",
+          "isAttending": false,
+          "dietaryRestrictions": "none",
+          "needsTransport": false
+        },
+        {
+          "name": "Valeria Rossi",
+          "isAttending": false,
+          "dietaryRestrictions": "vegan",
+          "needsTransport": false
+        }
+      ]
+    },
+    {
+      "code": "INVITADO123",
+      "names": "Juan Gómez & Acompañante",
+      "passes": 2,
+      "status": "pending",
+      "guests": [
+        {
+          "name": "Juan Gómez",
+          "isAttending": true,
+          "dietaryRestrictions": "none"
+        },
+        {
+          "name": "Acompañante",
+          "isAttending": true,
+          "dietaryRestrictions": "none"
+        }
+      ]
+    }
+  ]
+}

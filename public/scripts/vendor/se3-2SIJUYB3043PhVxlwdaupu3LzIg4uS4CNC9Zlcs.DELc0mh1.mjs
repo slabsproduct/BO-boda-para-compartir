@@ -28567,7 +28567,7 @@ var Kf,
         }
       }),
       $(tp, `_ModulePromise`, null),
-      $(tp, `_wasmURL`, `https://cdn.jsdelivr.net/npm/${$f}@${Qf}/dist/dotlottie-player.wasm`),
+      $(tp, `_wasmURL`, `assets/misc/dotlottie-player.wasm`),
       (np = class {
         constructor() {
           $(this, `_eventListeners`, new Map());
@@ -35445,6 +35445,228 @@ var Sp,
         `framer-dot-lottie-controls`
       )));
   });
+// Keep the initial video element identical to Framer's SSR markup; enhance WebM
+// with a canvas only after hydration so React can hydrate the exported page.
+var Ap = (e) => {
+  let { src: v, loop: t = !0, autoplay: n = !0 } = e,
+    o = R(null);
+  let isManagedHeroVideo = v.endsWith(`desktop-hero.mp4`);
+  (_(() => {
+    let a = o.current;
+    if (!a) return;
+    if (isManagedHeroVideo) return;
+    let c = v.startsWith(`/`) ? v.slice(1) : v,
+      d = `assets/misc/desktop-hero.mp4`,
+      f = /\.webm(?:[?#]|$)/i.test(c),
+      m = !1,
+      M = !1;
+    if (f) {
+      try {
+        m = !!(a.canPlayType(`video/webm; codecs="vp8"`) || a.canPlayType(`video/webm`));
+      } catch (e) {
+        console.warn(`[video] No se pudo comprobar soporte WebM; se usará el MP4 de respaldo.`, e);
+      }
+    }
+    let h = null,
+      g = null,
+      y = !0,
+      b = 0,
+      u = null,
+      x = null,
+      E = () => {
+        if (!y) return;
+        if (typeof a.requestVideoFrameCallback == `function`) {
+          g = a.requestVideoFrameCallback(C);
+        } else {
+          h = requestAnimationFrame(C);
+        }
+      },
+      C = async () => {
+        if (!y) return;
+        if (a.readyState >= 2 && a.videoWidth > 0) {
+          try {
+            let e = await createImageBitmap(a, { colorSpaceConversion: `none` });
+            if (!y) {
+              e.close && e.close();
+              return;
+            }
+            (u.width !== e.width || u.height !== e.height) && ((u.width = e.width), (u.height = e.height));
+            x.clearRect(0, 0, u.width, u.height);
+            x.drawImage(e, 0, 0);
+            e.close && e.close();
+            a.style.opacity = `0`;
+            b = 0;
+          } catch (e) {
+            if (++b >= 3) {
+              console.warn(`[video] No se pudo dibujar WebM en canvas; se mostrará el video directo.`, e);
+              u.remove();
+              u = null;
+              a.style.opacity = `1`;
+              y = !1;
+              return;
+            }
+          }
+        }
+        E();
+      },
+      k = () => {
+        if (!f) return;
+        if (M) {
+          y = !1;
+          u && u.remove();
+          u = null;
+          a.style.opacity = `1`;
+          console.error(`[video] Falló la reproducción del WebM y del MP4 de respaldo.`);
+          return;
+        }
+        M = !0;
+        y = !1;
+        u && u.remove();
+        u = null;
+        a.style.opacity = `1`;
+        a.src = d;
+        a.load();
+        n && a.play().catch(() => {});
+      },
+      w = () => n && a.play().catch(() => {}),
+      S = () => {
+        if (!f || !m || typeof createImageBitmap != `function`) return;
+        u = document.createElement(`canvas`);
+        u.setAttribute(`aria-hidden`, `true`);
+        u.style.cssText = `position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;background:transparent;pointer-events:none`;
+        a.parentElement && a.parentElement.insertBefore(u, a);
+        x = u.getContext(`2d`);
+        if (!x) {
+          u.remove();
+          u = null;
+          return;
+        }
+        E();
+      };
+    a.addEventListener(`error`, k);
+    a.addEventListener(`canplay`, w);
+    if (f && !m) {
+      M = !0;
+      a.src = d;
+      a.load();
+    } else {
+      S();
+    }
+    n && a.play().catch(() => {});
+    return () => {
+      y = !1;
+      if (h !== null) cancelAnimationFrame(h);
+      if (g !== null && typeof a.cancelVideoFrameCallback == `function`) a.cancelVideoFrameCallback(g);
+      a.removeEventListener(`error`, k);
+      a.removeEventListener(`canplay`, w);
+      u && u.remove();
+      a.style.opacity = `1`;
+    };
+  }), [v, t, n]);
+  return p(`video`, {
+    ref: o,
+    src: isManagedHeroVideo
+      ? void 0
+      : v.startsWith(`/`)
+        ? v.slice(1)
+        : v,
+    autoPlay: isManagedHeroVideo ? !1 : n,
+    loop: t,
+    muted: !0,
+    playsInline: !0,
+    preload: isManagedHeroVideo ? `none` : `auto`,
+    disablePictureInPicture: !0,
+    controlsList: `nodownload`,
+    "webkit-playsinline": ``,
+    "x5-video-player-type": `h5`,
+    "aria-label": `Animaci\u00f3n del cronograma`,
+    style: { width: `100%`, height: `100%`, objectFit: `contain`, display: `block`, background: `transparent` },
+  });
+};
+function LottieWhenVisible(e) {
+  let [t, n] = l(null),
+    [r, i] = l(!1),
+    [a, o] = l(!1),
+    [c, u] = l(!1),
+    [d, s] = l(null);
+  return (
+    _(() => {
+      if (!t || r) return;
+      if (typeof IntersectionObserver == `undefined`) {
+        i(!0);
+        return;
+      }
+      let observer = new IntersectionObserver(
+        (entries, observer) => {
+          entries.some((entry) => entry.isIntersecting) && (i(!0), observer.disconnect());
+        },
+        { rootMargin: `500px 0px` }
+      );
+      return (
+        observer.observe(t),
+        () => {
+          observer.disconnect();
+        }
+      );
+    }, [t, r]),
+    f(`div`, {
+      ref: n,
+      style: { width: `100%`, height: `100%`, position: `relative` },
+      children: [
+        r
+          ? p(
+              Ep,
+              {
+                src: e.src,
+                autoplay: e.autoplay,
+                loop: e.loop,
+                mode: e.mode,
+                playOnHover: e.playOnHover,
+                backgroundColor: e.backgroundColor,
+                speed: e.speed,
+                dotLottieRefCallback: (t) => {
+                  if (t && d !== t) {
+                    t.addEventListener(`load`, () => {
+                      o(!0);
+                      u(!1);
+                    });
+                    t.addEventListener(`loadError`, () => u(!0));
+                    t.addEventListener(`renderError`, () => u(!0));
+                    s(t);
+                  }
+                  e.dotLottieRefCallback?.(t);
+                },
+                style: e.style,
+                renderConfig: {
+                  ...e.renderConfig,
+                  devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+                  freezeOnOffscreen: !0,
+                },
+              },
+              e.src
+            )
+          : null,
+        !a
+          ? f(`div`, {
+              className: `home-lottie-loader`,
+              role: `status`,
+              "aria-live": `polite`,
+              children: [
+                f(`span`, {
+                  className: `home-lottie-loader-spinner`,
+                  "aria-hidden": !0,
+                  style: c ? { display: `none` } : void 0,
+                }),
+                f(`span`, {
+                  children: c ? `No se pudo cargar la animaci\u00f3n` : `Cargando animaci\u00f3n...`,
+                }),
+              ],
+            })
+          : null,
+      ],
+    })
+  );
+}
 function wp(e) {
   let t = z.current() === z.canvas,
     [n, r] = l(null),
@@ -35460,6 +35682,29 @@ function wp(e) {
     default:
       a = Tp;
       break;
+  }
+  // FIX local: el dotlottie-web solo soporta .lottie/.json y no puede renderizar GIFs.
+  // Si la fuente es una imagen (gif/png/jpg/webp), mostrarla como <img> en lugar del canvas Lottie.
+  if (typeof a === `string` && /\.(gif|png|jpe?g|webp|apng|avif)([?#].*)?$/i.test(a))
+    return f(`div`, {
+      style: { ...e.style, position: `relative`, width: `100%`, height: `100%`, display: `flex` },
+      children: p(`img`, {
+        src: a,
+        alt: ``,
+        decoding: `async`,
+        loading: `lazy`,
+        fetchPriority: `low`,
+        style: { width: `100%`, height: `100%`, objectFit: `contain`, display: `block` },
+      }),
+    });
+  // Keep the video as the direct Suspense child so its client tree matches Framer SSR.
+  if (typeof a === `string` && /\.(mp4|webm|m4v|mov)([?#].*)?$/i.test(a)) {
+    let isManagedHeroVideo = a.endsWith(`desktop-hero.mp4`);
+    return p(Ap, {
+      src: isManagedHeroVideo ? `desktop-hero.mp4` : a,
+      loop: e.loop !== !1,
+      autoplay: !isManagedHeroVideo && e.autoplay !== !1,
+    });
   }
   let [o, s] = l(!1);
   (_(() => {
@@ -35501,22 +35746,18 @@ function wp(e) {
       children: [
         p(`div`, {
           style: { position: `relative`, width: `100%`, flex: 1, minHeight: 0 },
-          children: p(
-            Ep,
-            {
-              src: a,
-              autoplay: !t && !e.hover && e.autoplay,
-              loop: e.loop,
-              mode: i,
-              playOnHover: e.hover,
-              backgroundColor: e.background,
-              speed: e.speed,
-              dotLottieRefCallback: r,
-              style: { width: `100%`, height: `100%` },
-              renderConfig: e.controls ? { autoResize: !0 } : void 0,
-            },
-            a
-          ),
+          children: p(LottieWhenVisible, {
+            src: a,
+            autoplay: !t && !e.hover && e.autoplay,
+            loop: e.loop,
+            mode: i,
+            playOnHover: e.hover,
+            backgroundColor: e.background,
+            speed: e.speed,
+            dotLottieRefCallback: r,
+            style: { width: `100%`, height: `100%` },
+            renderConfig: e.controls ? { autoResize: !0 } : void 0,
+          }),
         }),
         e.controls
           ? p(Sp, {
@@ -35540,12 +35781,14 @@ var Tp,
       O(),
       g(),
       Cp(),
-      (Tp = `https://lottie.host/d826e0a7-b7e8-4072-8afe-c943ed2dd2ca/DpX3m5yT5Z.lottie`),
+      (Tp = `/assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c_20261101062134.webm`),
       (Ep = _p),
       (wp.defaultProps = {
         srcUrl: Tp,
         autoplay: !0,
-        background: `#05F`,
+        // FIX local: default del Dot Lottie tenia fondo solido #05F; con recursos
+        // con alpha debe ser transparente para no tapar el fondo de la seccion.
+        background: `rgba(0, 0, 0, 0)`,
         controls: !1,
         direction: 1,
         hover: !1,
@@ -35823,7 +36066,7 @@ var om,
       (function (e) {
         ((e.Video = `Upload`), (e.Url = `URL`));
       })((sm ||= {})),
-      (cm = `https://framerusercontent.com/assets/MLWPbW1dUQawJLhhun3dBwpgJak.mp4`),
+      (cm = `https://framerusercontent.com/assets/desktop-hero.mp4`),
       (lm = c(function (e) {
         let {
             srcType: t = `URL`,
@@ -35968,7 +36211,7 @@ var om,
         srcUrl: {
           type: U.String,
           title: `URL`,
-          defaultValue: `https://framerusercontent.com/assets/MLWPbW1dUQawJLhhun3dBwpgJak.mp4`,
+          defaultValue: `https://framerusercontent.com/assets/desktop-hero.mp4`,
           hidden(e) {
             return e.srcType === `Upload`;
           },
@@ -38173,6 +38416,7 @@ var Jm,
                         rendersWithMotion: !0,
                         scopeId: `N5hMAFvBt`,
                         children: p(_e, {
+                          openInNewTab: !0,
                           azjbYCood: `999px`,
                           gHeOvXgAq: `https://ul.waze.com/ul?place=ChIJQyLxaHPpfZYRXVizldWYXXI&ll=-33.00214760%2C-69.17521280&navigate=yes&utm_campaign=live_map&utm_source=waze_website&utm_medium=lm_share_location`,
                           Goeh0UlpU: `Car`,
@@ -38199,6 +38443,7 @@ var Jm,
                         rendersWithMotion: !0,
                         scopeId: `N5hMAFvBt`,
                         children: p(_e, {
+                          openInNewTab: !0,
                           azjbYCood: `999px`,
                           gHeOvXgAq: `https://maps.app.goo.gl/5DypKSeZSw9CjCMF9`,
                           Goeh0UlpU: `Recurso 5.svg`,
@@ -40344,9 +40589,9 @@ e(() => {
                                     objectFit: `cover`,
                                     playing: !0,
                                     posterEnabled: !0,
-                                    srcFile: `../../assets/misc/nb3n2t6YzmcN2pk4FY48RXe5Phc.mp4`,
+                                    srcFile: `../../assets/misc/desktop-hero.mp4`,
                                     srcType: `Upload`,
-                                    srcUrl: `https://framerusercontent.com/assets/MLWPbW1dUQawJLhhun3dBwpgJak.mp4`,
+                                    srcUrl: `https://framerusercontent.com/assets/desktop-hero.mp4`,
                                     startTime: 0,
                                     style: { height: `100%`, width: `100%` },
                                     topLeftRadius: 0,
@@ -40504,7 +40749,7 @@ e(() => {
                                 playing: !0,
                                 posterEnabled: !0,
                                 srcType: `Upload`,
-                                srcUrl: `https://framerusercontent.com/assets/MLWPbW1dUQawJLhhun3dBwpgJak.mp4`,
+                                srcUrl: `https://framerusercontent.com/assets/desktop-hero.mp4`,
                                 startTime: 0,
                                 style: { height: `100%`, width: `100%` },
                                 topLeftRadius: 0,
@@ -40881,6 +41126,7 @@ e(() => {
                                         V4zLOktIr: { variant: Fg(`rR8gbhtfg`) },
                                       },
                                       children: p(_e, {
+                                        openInNewTab: !0,
                                         azjbYCood: `999px`,
                                         height: `100%`,
                                         hyoIEBZCr: `Confirma tu asistencia`,
@@ -41126,9 +41372,11 @@ e(() => {
                                     loop: !0,
                                     progress: 0,
                                     speed: 1,
-                                    srcFile: `../../assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c.lottie`,
+                                    srcFile: `assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c.lottie?v=20261104-optimized-3`,
                                     srcType: `file`,
-                                    srcUrl: `https://lottie.host/d826e0a7-b7e8-4072-8afe-c943ed2dd2ca/DpX3m5yT5Z.lottie`,
+                                    srcUrl: `assets/misc/RAwHhmPDbI1oYdUfPjX4vQ7t2c.lottie?v=20261104-optimized-3`,
+                                    video: !0,
+                                    posterUrl: ``,
                                     style: { height: `100%`, width: `100%` },
                                     width: `100%`,
                                   }),
@@ -41366,8 +41614,9 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             nodeId: `aJrqUSGGD`,
                                             scopeId: `cUeqT91wH`,
                                             children: p(_e, {
+                                              openInNewTab: !0,
                                               azjbYCood: `999px`,
-                                              gHeOvXgAq: `https://www.pinterest.com/MariAngel9/inspo-dresscode/`,
+                                              gHeOvXgAq: `https://ar.pinterest.com/MariAngel9/inspo-dresscode/`,
                                               height: `100%`,
                                               hyoIEBZCr: `Ver inspiración`,
                                               id: `aJrqUSGGD`,
@@ -41387,7 +41636,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                     nodeId: `xQ3AhTPFC`,
                                     scopeId: `cUeqT91wH`,
                                     children: p(lg, {
-                                      backNote: `Queremos que disfruten de este día al máximo y sin preocupaciones. Como la conectividad en la zona es limitada, pondremos a disposición un servicio de bus para que puedan llegar y regresar cómodamente, sin tener que preocuparse por manejar. <b>El servicio tendrá un costo de $X por persona</b>.
+                                      backNote: `Queremos que disfruten de este día al máximo y sin preocupaciones. Por eso nos encargamos de su regreso: al terminar la fiesta, habrá un servicio de bus esperándolos para volver cómodamente, sin tener que pensar en manejar. <b>La ida es por su cuenta, el regreso lo ponemos nosotros, sin costo alguno</b>.
 
 ¡Así solo tienen que preocuparse por celebrar con nosotros!`,
                                       borderColor: `rgb(224, 224, 224)`,
@@ -41435,7 +41684,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                     nodeId: `rU5l2BUiS`,
                                     scopeId: `cUeqT91wH`,
                                     children: p(lg, {
-                                      backNote: `¡Queremos vivir este día a través de sus ojos! 💛 Creamos un álbum compartido para que puedan subir todas las fotos y videos que quieran, no solo de la boda, sino también de la travesía para llegar hasta acá. Sabemos que muchos harán un largo viaje para acompañarnos y nos encantaría guardar esos pequeños momentos, desde el comienzo de la aventura hasta el último baile.
+                                      backNote: `¡Queremos vivir este día a través de sus ojos! 💛 Saquen todas las fotos y videos que quieran, no solo de la boda, sino también de la travesía para llegar hasta acá. Sabemos que muchos harán un largo viaje para acompañarnos y nos encantaría guardar esos pequeños momentos, desde el comienzo de la aventura hasta el último baile. E igual, seguinos en IG para ver nuestra aventura al altar.
 
 ¡Cada recuerdo cuenta y queremos atesorarlos todos con ustedes!`,
                                       borderColor: `rgb(224, 224, 224)`,
@@ -41491,7 +41740,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                               "--framer-line-height": `1.3em`,
                                               "--framer-text-alignment": `center`,
                                             },
-                                            children: `Sumá las fotos que quieras desde el albúm compartido que creamos para compartir y no quedarnos fuera,`,
+                                            children: `Seguinos en IG y capturen todo desde su punto de vista, que después tendremos un álbum compartido para juntarlas todas.`,
                                           }),
                                         }),
                                         className: `framer-17v004q`,
@@ -41509,9 +41758,10 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             nodeId: `tEjKL9gsO`,
                                             scopeId: `cUeqT91wH`,
                                             children: p(_e, {
+                                              openInNewTab: !0,
                                               azjbYCood: `999px`,
                                               height: `100%`,
-                                              hyoIEBZCr: `Sumate al albúm`,
+                                              hyoIEBZCr: `Seguinos en IG`,
                                               id: `tEjKL9gsO`,
                                               layoutId: `tEjKL9gsO`,
                                               variant: Fg(`eMNwtJ8FZ`),
@@ -41567,6 +41817,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             nodeId: `pVG4F7t5M`,
                                             scopeId: `cUeqT91wH`,
                                             children: p(_e, {
+                                              openInNewTab: !0,
                                               azjbYCood: `999px`,
                                               gHeOvXgAq: `https://www.google.com/maps/place/Plaza+General+Espejo/@-32.986405,-68.8847115,17z/data=!3m1!4b1!4m6!3m5!1s0x967e0aed4ea9997b:0xa2114953ee10c4dd!8m2!3d-32.9864095!4d-68.8821366!16s%2Fg%2F11c67r0cxc?authuser=0&entry=ttu&g_ep=EgoyMDI2MTAxMy4wIKXMDSoASAFQAw%3D%3D`,
                                               height: `100%`,
@@ -41632,8 +41883,9 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             nodeId: `XCi007VvJ`,
                                             scopeId: `cUeqT91wH`,
                                             children: p(_e, {
+                                              openInNewTab: !0,
                                               azjbYCood: `999px`,
-                                              gHeOvXgAq: `https://www.pinterest.com/MariAngel9/inspo-dresscode/`,
+                                              gHeOvXgAq: `https://ar.pinterest.com/MariAngel9/inspo-dresscode/`,
                                               height: `100%`,
                                               hyoIEBZCr: `Ver inspiración`,
                                               id: `XCi007VvJ`,
@@ -41691,6 +41943,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             nodeId: `bHrt5hm8o`,
                                             scopeId: `cUeqT91wH`,
                                             children: p(_e, {
+                                              openInNewTab: !0,
                                               azjbYCood: `999px`,
                                               gHeOvXgAq: `https://www.google.com/maps/place/Plaza+General+Espejo/@-32.986405,-68.8847115,17z/data=!3m1!4b1!4m6!3m5!1s0x967e0aed4ea9997b:0xa2114953ee10c4dd!8m2!3d-32.9864095!4d-68.8821366!16s%2Fg%2F11c67r0cxc?authuser=0&entry=ttu&g_ep=EgoyMDI2MTAxMy4wIKXMDSoASAFQAw%3D%3D`,
                                               height: `100%`,
@@ -41719,7 +41972,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                               "--framer-line-height": `1.3em`,
                                               "--framer-text-alignment": `center`,
                                             },
-                                            children: `Sumá las fotos que quieras desde el albúm compartido que creamos para compartir y no quedarnos fuera,`,
+                                            children: `Seguinos en IG y capturen todo desde su punto de vista, que después tendremos un álbum compartido para juntarlas todas.`,
                                           }),
                                         }),
                                         className: `framer-1l54fr5`,
@@ -41738,9 +41991,10 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                             nodeId: `I6j2nTgc9`,
                                             scopeId: `cUeqT91wH`,
                                             children: p(_e, {
+                                              openInNewTab: !0,
                                               azjbYCood: `999px`,
                                               height: `100%`,
-                                              hyoIEBZCr: `Sumate al albúm`,
+                                              hyoIEBZCr: `Seguinos en IG`,
                                               id: `I6j2nTgc9`,
                                               layoutId: `I6j2nTgc9`,
                                               variant: Fg(`eMNwtJ8FZ`),
@@ -42124,7 +42378,7 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                           clrfc2Nme: `¿Cómo funciona el código único de invitación?`,
                                           cZbF_ZooR: `Por favor, confírmanos antes del 03 de Febrero de 2027. Necesitamos definir las capacidades y restricciones del menú con los organizadores antes de esa fecha.`,
                                           eDDf9EZ3g: `¿Habrá transmisión en vivo?`,
-                                          eocVa2nlJ: `La ceremonia inicia a las 4:00 PM, pero recomendamos llegar antes para disfrutar del lugar.`,
+                                          eocVa2nlJ: `La ceremonia inicia a las 15:30hs, pero recomendamos llegar antes para disfrutar del lugar.`,
                                           Ggmbc5OoO: `¿Cómo me traslado hacia/desde el lugar?`,
                                           GqZJt5liT: `¿Hay estacionamiento disponible en el lugar?`,
                                           height: `100%`,
@@ -42137,9 +42391,9 @@ Elegantes, pero relajados. Pueden optar por pantalón de vestir o de lino, camis
                                           NSoyBpum7: `¿Qué necesito para ingresar a Argentina si viajo desde el exterior?`,
                                           OCWqaoTN3: `¡Sí! Tendremos un servicio de comida increíble para compartir y una pista de baile para que todos se diviertan. Si tienes alguna restricción con alimentos, por favor, indícalo en el formulario de confirmación.`,
                                           qTYaUuARc: `¿La boda es en interior o al aire libre?`,
-                                          qUDrqxRA_: `¡Claro! Nos encantaría que compartas tus fotos en nuestro albúm compartido. Solo te pedimos que no uses flash, silencies tu teléfono y no obstruyas el paso de los fotógrafos profesionales.`,
+                                          qUDrqxRA_: `¡Claro! Nos encantaría ver el día desde tu punto de vista. Solo te pedimos que no uses flash, silencies tu teléfono y no obstruyas el paso de los fotógrafos profesionales.`,
                                           style: { width: `100%` },
-                                          t2MHMdVRA: `Sí, únicamente la ceremonia se transmitirá por YouTube Live de 4:00 PM para quienes no nos puedan acompañar físicamente.`,
+                                          t2MHMdVRA: `Sí, únicamente la ceremonia se transmitirá por YouTube Live desde las 15:30hs para quienes no nos puedan acompañar físicamente.`,
                                           t3O8tZ8FB: `¿Puedo llevar acompañante?`,
                                           tqm8zbggs: `Es posible que te soliciten un seguro médico internacional que cubra toda tu estadía en migraciones.`,
                                           UgwbE7Dnm: `¿A qué hora debo llegar?`,

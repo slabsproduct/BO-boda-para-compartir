@@ -11,7 +11,6 @@ import {
   CheckCircle,
   XCircle,
   HelpCircle,
-  Info,
   ChevronRight,
   Send,
   Lock,
@@ -29,11 +28,11 @@ import {
   AlertCircle,
   Database,
   Server,
-  HardDrive,
-  FileCode
+  HardDrive
 } from "lucide-react";
 import { Invitation, Guest } from "../types";
 import { BrandLogo } from "../components/Brand/BrandLogo";
+import { apiUrl, apiUrlPair, fetchJsonWithFallback } from "../lib/base";
 
 interface AdminProps {
   onBackToRSVP: () => void;
@@ -46,6 +45,17 @@ interface SimulatedEmail {
   body: string;
   timestamp: string;
 }
+
+const getGuestAttendance = (invitation: Invitation, guest: Guest): boolean | null => {
+  if (invitation.status === "pending") return null;
+  if (invitation.status === "declined") return false;
+  return guest.isAttending ?? null;
+};
+
+const getAttendanceLabel = (isAttending: boolean | null) => {
+  if (isAttending == null) return "Pendiente";
+  return isAttending ? "Sí" : "No";
+};
 
 export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
   // Password authentication state (persisted in sessionStorage)
@@ -88,6 +98,8 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
   const [newCode, setNewCode] = useState("");
   const [newNames, setNewNames] = useState("");
   const [newPasses, setNewPasses] = useState("2");
+  const [newGuestNames, setNewGuestNames] = useState<string[]>([]);
+  const [createInvitationStep, setCreateInvitationStep] = useState<1 | 2>(1);
 
   // Edit Modal state
   const [editingInvitation, setEditingInvitation] = useState<Invitation | null>(null);
@@ -105,9 +117,11 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [dbStatus, setDbStatus] = useState<{
     engine: string;
-    compatibleWith: string[];
-    sqliteFile: string;
-    sqliteSize: string;
+    compatibleWith?: string[];
+    dbFile?: string;
+    dbSize?: string;
+    dataFile?: string;
+    dataSize?: string;
     totalInvitations: number;
     totalGuests: number;
   } | null>(null);
@@ -115,19 +129,37 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const invRes = await fetch("/api/admin/rsvps");
-      const invData = await invRes.json();
-      setInvitations(invData);
+      // En DonWeb estas peticiones terminan en api.php; en dev local van a las
+      // rutas /api/* de server.ts (ambas leen los mismos datos precargados).
+      // apiUrlPair() nos da ambas URLs: si la primaria falla (red, 4xx/5xx o
+      // HTML en vez de JSON) reintentamos contra la alternativa antes de
+      // mostrar errores al usuario.
+      const readJsonSafe = async (route: string): Promise<any> => {
+        const pair = apiUrlPair(route);
+        return fetchJsonWithFallback(pair.primary, pair.fallback);
+      };
 
-      const emailRes = await fetch("/api/admin/emails");
-      const emailData = await emailRes.json();
-      setEmails(emailData);
+      const [invData, emailData] = await Promise.all([
+        readJsonSafe("admin/rsvps"),
+        readJsonSafe("admin/emails"),
+      ]);
 
-      const statusRes = await fetch("/api/admin/db/status").then(r => r.json()).catch(() => null);
+      // Compatibilidad: server.ts devuelve un array plano; api.php también,
+      // pero si alguna versión devuelve {"invitations": [...]} lo normalizamos.
+      setInvitations(Array.isArray(invData) ? invData : (invData?.invitations ?? []));
+      setEmails(Array.isArray(emailData) ? emailData : (emailData?.emails ?? []));
+
+      let statusRes: any = null;
+      try {
+        statusRes = await readJsonSafe("admin/db/status");
+      } catch {
+        statusRes = null; // informativo: no debe romper la pantalla de admin
+      }
       if (statusRes) setDbStatus(statusRes);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setErrorMessage("Error de conexión al obtener datos de administración.");
+      const detail = err && err.message ? ` (${err.message})` : "";
+      setErrorMessage("Error de conexión al obtener datos de administración." + detail);
     } finally {
       setLoading(false);
     }
@@ -153,16 +185,35 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
       return;
     }
 
+    if (createInvitationStep === 1) {
+      setNewGuestNames(currentNames =>
+        Array.from({ length: parseInt(newPasses, 10) }, (_, index) => currentNames[index] || "")
+      );
+      setCreateInvitationStep(2);
+      setErrorMessage(null);
+      return;
+    }
+
+    if (newGuestNames.length !== parseInt(newPasses, 10) || newGuestNames.some(name => !name.trim())) {
+      setErrorMessage("Ingresá el nombre completo de cada invitado para continuar.");
+      return;
+    }
+
     setErrorMessage(null);
 
     try {
-      const response = await fetch("/api/admin/rsvps", {
+      const response = await fetch(apiUrl("admin/rsvps"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code: newCode.trim().toUpperCase(),
           names: newNames.trim(),
-          passes: parseInt(newPasses, 10)
+          passes: parseInt(newPasses, 10),
+          guests: newGuestNames.map(name => ({
+            name: name.trim(),
+            isAttending: null,
+            dietaryRestrictions: "none"
+          }))
         })
       });
 
@@ -173,6 +224,8 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
         setNewCode("");
         setNewNames("");
         setNewPasses("2");
+        setNewGuestNames([]);
+        setCreateInvitationStep(1);
         setShowCreateModal(false);
         fetchData();
       } else {
@@ -192,7 +245,10 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
       names: inv.names,
       passes: inv.passes,
       status: inv.status,
-      guests: JSON.parse(JSON.stringify(inv.guests || []))
+      guests: (inv.guests || []).map(guest => ({
+        ...guest,
+        isAttending: getGuestAttendance(inv, guest)
+      }))
     });
   };
 
@@ -202,7 +258,7 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
     if (!editingInvitation || !editFormData) return;
 
     try {
-      const response = await fetch(`/api/admin/rsvps/${editingInvitation.code}`, {
+      const response = await fetch(apiUrl(`admin/rsvps/${encodeURIComponent(editingInvitation.code)}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editFormData)
@@ -228,7 +284,7 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
     if (!confirm(`¿Estás seguro de que querés eliminar la invitación con el código ${code}?`)) return;
 
     try {
-      const response = await fetch(`/api/admin/rsvps/${code}`, {
+      const response = await fetch(apiUrl(`admin/rsvps/${encodeURIComponent(code)}`), {
         method: "DELETE"
       });
 
@@ -249,7 +305,7 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
     if (!confirm("¿Querés limpiar la bandeja de simulación de emails de la boda?")) return;
 
     try {
-      await fetch("/api/admin/emails", {
+      await fetch(apiUrl("admin/emails"), {
         method: "DELETE"
       });
       setEmails([]);
@@ -279,9 +335,10 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
       "Nro Asistente",
       "Nombre Invitado",
       "Asiste",
+      "Email para YouTube",
       "Dieta / Menú",
       "Requiere Traslado",
-      "Punto de Traslado",
+      "Ruta de Transporte",
       "Notas",
       "Última Actualización"
     ];
@@ -291,6 +348,7 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
     invitations.forEach((inv) => {
       if (inv.guests && inv.guests.length > 0) {
         inv.guests.forEach((g, idx) => {
+          const attendance = getGuestAttendance(inv, g);
           rows.push([
             inv.code,
             `"${inv.names.replace(/"/g, '""')}"`,
@@ -298,10 +356,11 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
             inv.status,
             (idx + 1).toString(),
             `"${g.name.replace(/"/g, '""')}"`,
-            g.isAttending ? "Sí" : "No",
+            getAttendanceLabel(attendance),
+            `"${(attendance === false ? inv.youtubeEmail || "" : "").replace(/"/g, '""')}"`,
             `"${g.dietaryRestrictions || 'none'}"`,
             g.needsTransport ? "Sí" : "No",
-            `"${g.transportLocation || ''}"`,
+            `"${g.needsTransport ? "Desde la boda en Potrerillos hasta Mendoza Capital" : ""}"`,
             `"${(g.notes || '').replace(/"/g, '""')}"`,
             inv.updatedAt ? new Date(inv.updatedAt).toLocaleString() : ""
           ]);
@@ -312,6 +371,7 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
           `"${inv.names.replace(/"/g, '""')}"`,
           inv.passes.toString(),
           inv.status,
+          "-",
           "-",
           "-",
           "-",
@@ -489,7 +549,15 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
         {/* Global Toolbar buttons */}
         <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              setNewCode("");
+              setNewNames("");
+              setNewPasses("2");
+              setNewGuestNames([]);
+              setCreateInvitationStep(1);
+              setErrorMessage(null);
+              setShowCreateModal(true);
+            }}
             className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#363B1F] hover:bg-[#272B15] text-[#FAF6F2] rounded-xl text-xs font-mono uppercase tracking-wider font-bold transition-all shadow-sm cursor-pointer"
           >
             <Plus className="w-4 h-4 text-emerald-300" />
@@ -744,17 +812,22 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
                         Asistentes ({inv.guests?.length || 0}):
                       </span>
                       <div className="flex flex-wrap gap-1">
-                        {inv.guests?.map((g, gi) => (
+                        {inv.guests?.map((g, gi) => {
+                          const attendance = getGuestAttendance(inv, g);
+                          return (
                           <div
                             key={gi}
                             className={`text-[10px] font-mono px-2 py-0.5 rounded-md flex items-center gap-1 ${
-                              g.isAttending
+                              attendance === true
                                 ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                : attendance === null
+                                ? "bg-amber-50 text-amber-800 border border-amber-200"
                                 : "bg-zinc-100 text-zinc-500 border border-zinc-200"
                             }`}
                           >
-                            <span>{g.isAttending ? "✓" : "✗"}</span>
+                            <span>{attendance === true ? "✓" : attendance === false ? "✗" : "◷"}</span>
                             <span>{g.name}</span>
+                            <span>{getAttendanceLabel(attendance)}</span>
                             {g.dietaryRestrictions && g.dietaryRestrictions !== 'none' && (
                               <span className="text-[#6E0D23] font-bold">[{g.dietaryRestrictions}]</span>
                             )}
@@ -762,7 +835,8 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
                               <span className="text-sky-700">🚌</span>
                             )}
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -847,13 +921,16 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
                   <th className="py-3 px-4">Invitado / Nombre</th>
                   <th className="py-3 px-4">Familia / Código</th>
                   <th className="py-3 px-4">Asiste</th>
+                  <th className="py-3 px-4">Email para YouTube</th>
                   <th className="py-3 px-4">Menú / Dieta</th>
                   <th className="py-3 px-4">Traslado</th>
                   <th className="py-3 px-4">Notas</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#363B1F]/5">
-                {allGuests.map(({ guest, invitation, index }) => (
+                {allGuests.map(({ guest, invitation, index }) => {
+                  const attendance = getGuestAttendance(invitation, guest);
+                  return (
                   <tr key={`${invitation.code}-${index}`} className="hover:bg-[#FAF6F2]/40 transition-colors">
                     <td className="py-3 px-4 font-semibold text-[#363B1F]">
                       {guest.name}
@@ -864,12 +941,23 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
                     </td>
                     <td className="py-3 px-4">
                       <span className={`inline-block font-mono text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
-                        guest.isAttending
+                        attendance === true
                           ? "bg-emerald-100 text-emerald-800"
-                          : "bg-rose-100 text-rose-800"
+                          : attendance === false
+                          ? "bg-rose-100 text-rose-800"
+                          : "bg-amber-100 text-amber-800"
                       }`}>
-                        {guest.isAttending ? "✓ Sí" : "✗ No"}
+                        {attendance === true ? "✓ Sí" : attendance === false ? "✗ No" : "◷ Pendiente"}
                       </span>
+                    </td>
+                    <td className="py-3 px-4 text-[#626262]">
+                      {attendance === false && invitation.youtubeEmail ? (
+                        <a className="text-[#006B52] underline" href={`mailto:${invitation.youtubeEmail}`}>
+                          {invitation.youtubeEmail}
+                        </a>
+                      ) : (
+                        "-"
+                      )}
                     </td>
                     <td className="py-3 px-4">
                       {guest.dietaryRestrictions && guest.dietaryRestrictions !== 'none' ? (
@@ -883,7 +971,7 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
                     <td className="py-3 px-4">
                       {guest.needsTransport ? (
                         <span className="inline-flex items-center gap-1 font-mono text-[10px] text-sky-800 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full">
-                          <Bus className="w-3 h-3" /> {guest.transportLocation || "Mendoza"}
+                          <Bus className="w-3 h-3" /> Potrerillos → Mendoza Capital
                         </span>
                       ) : (
                         <span className="text-[#626262]">-</span>
@@ -893,7 +981,8 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
                       {guest.notes || "-"}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -996,10 +1085,10 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
                 </div>
                 <div>
                   <h3 className="font-serif font-bold text-xl sm:text-2xl text-[#363B1F]">
-                    Motor de Base de Datos SQLite 3
+                    Motor de Base de Datos {dbStatus?.engine || "JSON atómico"}
                   </h3>
                   <p className="text-xs text-[#626262]">
-                    Base de datos local embebida, compatible nativamente con servidores DonWeb Argentina (Linux / cPanel / Node.js)
+                    Persistencia local en archivo JSON con escritura atómica, compatible nativamente con servidores DonWeb Argentina (Linux / cPanel)
                   </p>
                 </div>
               </div>
@@ -1022,11 +1111,11 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
             {/* Metrics Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="p-4 bg-[#FAF6F2] rounded-2xl border border-[#363B1F]/10">
-                <p className="text-[10px] font-mono uppercase tracking-wider text-[#626262]">Archivo SQLite</p>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-[#626262]">Archivo de Datos</p>
                 <p className="font-mono font-bold text-sm text-[#363B1F] mt-1 truncate">
-                  {dbStatus?.sqliteFile || 'wedding.sqlite'}
+                  {dbStatus?.dataFile || dbStatus?.dbFile || 'data/db.json'}
                 </p>
-                <p className="text-[10px] text-[#626262] mt-0.5">Tamaño: {dbStatus?.sqliteSize || 'En disco'}</p>
+                <p className="text-[10px] text-[#626262] mt-0.5">Tamaño: {dbStatus?.dataSize || dbStatus?.dbSize || 'En disco'}</p>
               </div>
 
               <div className="p-4 bg-[#FAF6F2] rounded-2xl border border-[#363B1F]/10">
@@ -1061,21 +1150,11 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
               </h4>
               <div className="flex flex-wrap items-center gap-3">
                 <a
-                  href="/api/admin/db/download-sqlite"
-                  download="wedding.sqlite"
+                  href={apiUrl("admin/db/download-backup")}
                   className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#363B1F] text-[#FAF6F2] rounded-xl text-xs font-mono font-bold uppercase tracking-wider hover:bg-[#272B15] transition-colors shadow-xs"
                 >
                   <Download className="w-4 h-4" />
-                  Descargar wedding.sqlite
-                </a>
-
-                <a
-                  href="/api/admin/db/download-sql"
-                  download="wedding_dump.sql"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-[#363B1F]/20 text-[#363B1F] rounded-xl text-xs font-mono font-bold uppercase tracking-wider hover:bg-[#FAF6F2] transition-colors"
-                >
-                  <FileCode className="w-4 h-4 text-[#6E0D23]" />
-                  Descargar Dump SQL (.sql)
+                  Descargar Respaldo (db.json)
                 </a>
 
                 <button
@@ -1135,18 +1214,11 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
                 </div>
                 <h5 className="font-bold text-[#363B1F] text-sm">Subir a cPanel / DonWeb</h5>
                 <p className="text-[#626262] leading-relaxed">
-                  Subí el contenido a tu carpeta <code className="bg-[#FAF6F2] px-1 py-0.5 rounded text-[11px] font-mono text-[#6E0D23]">public_html/boda/</code>. Si usás el selector de Node.js de DonWeb, la base SQLite funcionará directamente sin necesidad de crear servidores MySQL ni usuarios externos.
+                  Subí el contenido a tu carpeta <code className="bg-[#FAF6F2] px-1 py-0.5 rounded text-[11px] font-mono text-[#6E0D23]">public_html/boda/</code>. El backend <code className="bg-[#FAF6F2] px-1 py-0.5 rounded text-[11px] font-mono text-[#6E0D23]">api.php</code> funciona nativamente en PHP del hosting compartido: las reservas se guardan en <code className="bg-[#FAF6F2] px-1 py-0.5 rounded text-[11px] font-mono text-[#6E0D23]">data/db.json</code> con escritura atómica, sin necesitar Node.js ni MySQL.
                 </p>
               </div>
             </div>
 
-            {/* Note box */}
-            <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-2xl flex items-start gap-3">
-              <Info className="w-4 h-4 text-amber-800 shrink-0 mt-0.5" />
-              <div className="text-xs text-amber-900 leading-relaxed">
-                <strong>¿Preferís MySQL o MariaDB en DonWeb?</strong> Podés descargar el archivo <strong>Dump SQL</strong> con el botón superior y cargarlo en phpMyAdmin de DonWeb en un solo clic. El esquema y las tablas ya están preparadas para compatibilidad universal.
-              </div>
-            </div>
           </div>
         </div>
       )}
@@ -1158,15 +1230,24 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full border border-[#363B1F]/15 shadow-2xl space-y-6"
+            className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full border border-[#363B1F]/15 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex justify-between items-start border-b border-[#363B1F]/10 pb-4">
               <div>
-                <h3 className="font-serif font-bold text-xl text-[#363B1F]">Crear Nueva Invitación</h3>
-                <p className="text-xs text-[#626262]">Generá un código para un nuevo grupo o familia.</p>
+                <h3 className="font-serif font-bold text-xl text-[#363B1F]">
+                  {createInvitationStep === 1 ? "Crear Nueva Invitación" : "Validar datos de invitados"}
+                </h3>
+                <p className="text-xs text-[#626262]">
+                  {createInvitationStep === 1
+                    ? "Generá un código para un nuevo grupo o familia."
+                    : "Revisá los nombres que se mostrarán en cada pase."}
+                </p>
               </div>
               <button
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setCreateInvitationStep(1);
+                }}
                 className="text-[#626262] hover:text-[#363B1F] p-1 cursor-pointer"
               >
                 ✕
@@ -1174,6 +1255,24 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
             </div>
 
             <form onSubmit={handleCreateInvitation} className="space-y-4">
+              <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-[#626262]">
+                <span className={`rounded-full px-2 py-1 font-bold ${createInvitationStep === 1 ? "bg-[#363B1F] text-white" : "bg-[#363B1F]/10"}`}>
+                  1. Invitación
+                </span>
+                <span className="h-px flex-1 bg-[#363B1F]/15" />
+                <span className={`rounded-full px-2 py-1 font-bold ${createInvitationStep === 2 ? "bg-[#363B1F] text-white" : "bg-[#363B1F]/10"}`}>
+                  2. Invitados
+                </span>
+              </div>
+
+              {errorMessage && (
+                <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                  {errorMessage}
+                </p>
+              )}
+
+              {createInvitationStep === 1 ? (
+                <>
               <div className="space-y-1">
                 <label className="text-[10px] font-mono uppercase tracking-wider text-[#363B1F] font-bold">
                   Código de Invitación (Mayúsculas)
@@ -1208,7 +1307,13 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
                 </label>
                 <select
                   value={newPasses}
-                  onChange={(e) => setNewPasses(e.target.value)}
+                  onChange={(e) => {
+                    const passCount = parseInt(e.target.value, 10);
+                    setNewPasses(e.target.value);
+                    setNewGuestNames(currentNames =>
+                      Array.from({ length: passCount }, (_, index) => currentNames[index] || "")
+                    );
+                  }}
                   className="w-full px-4 py-2.5 bg-[#FAF6F2] border border-[#363B1F]/20 rounded-xl text-sm focus:outline-none focus:border-[#363B1F] cursor-pointer"
                 >
                   <option value="1">1 Pase (Individual)</option>
@@ -1219,20 +1324,60 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
                   <option value="6">6 Pases</option>
                 </select>
               </div>
+                </>
+              ) : (
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-[#363B1F]/10 bg-[#FAF6F2] px-3 py-2 text-xs text-[#626262]">
+                    {newNames} · {newPasses} {parseInt(newPasses, 10) === 1 ? "pase" : "pases"} · Código {newCode.toUpperCase()}
+                  </div>
+                  <div>
+                    <h4 className="font-serif font-bold text-base text-[#363B1F]">Validar datos de invitados</h4>
+                    <p className="text-xs text-[#626262]">Ingresá el nombre que cada persona verá en su pase de confirmación.</p>
+                  </div>
+                  {newGuestNames.map((guestName, index) => (
+                    <div className="space-y-1" key={index}>
+                      <label htmlFor={`new-guest-${index}`} className="text-[10px] font-mono uppercase tracking-wider text-[#363B1F] font-bold">
+                        Invitado {index + 1} de {newGuestNames.length}
+                      </label>
+                      <input
+                        id={`new-guest-${index}`}
+                        type="text"
+                        required
+                        maxLength={100}
+                        autoComplete="name"
+                        placeholder="Nombre y apellido"
+                        value={guestName}
+                        onChange={(event) => {
+                          const updatedNames = [...newGuestNames];
+                          updatedNames[index] = event.target.value;
+                          setNewGuestNames(updatedNames);
+                        }}
+                        className="w-full px-4 py-2.5 bg-[#FAF6F2] border border-[#363B1F]/20 rounded-xl text-sm focus:outline-none focus:border-[#363B1F]"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="pt-2 flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => {
+                    if (createInvitationStep === 2) {
+                      setCreateInvitationStep(1);
+                    } else {
+                      setShowCreateModal(false);
+                    }
+                  }}
                   className="px-4 py-2.5 border border-[#363B1F]/20 rounded-xl text-xs font-mono uppercase tracking-wider text-[#626262] hover:bg-[#FAF6F2] cursor-pointer"
                 >
-                  Cancelar
+                  {createInvitationStep === 2 ? "Volver" : "Cancelar"}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2.5 bg-[#363B1F] text-[#FAF6F2] rounded-xl text-xs font-mono uppercase tracking-wider font-bold hover:bg-[#272B15] transition-colors cursor-pointer shadow-sm"
                 >
-                  Guardar Invitación
+                  {createInvitationStep === 2 ? "Guardar Invitación" : "Continuar"}
                 </button>
               </div>
             </form>
@@ -1349,21 +1494,25 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
                         placeholder="Nombre completo"
                       />
 
-                      <button
-                        type="button"
-                        onClick={() => {
+                      <select
+                        value={g.isAttending === true ? "yes" : g.isAttending === false ? "no" : "pending"}
+                        onChange={(e) => {
                           const updated = [...editFormData.guests];
-                          updated[gi].isAttending = !updated[gi].isAttending;
+                          updated[gi].isAttending = e.target.value === "yes" ? true : e.target.value === "no" ? false : null;
                           setEditFormData({ ...editFormData, guests: updated });
                         }}
-                        className={`px-2.5 py-1.5 rounded-lg font-mono text-[10px] font-bold uppercase cursor-pointer ${
-                          g.isAttending
-                            ? "bg-emerald-700 text-white"
-                            : "bg-zinc-200 text-zinc-600"
+                        className={`px-2.5 py-1.5 rounded-lg font-mono text-[10px] font-bold uppercase cursor-pointer border ${
+                          g.isAttending === true
+                            ? "bg-emerald-700 text-white border-emerald-700"
+                            : g.isAttending === false
+                            ? "bg-zinc-200 text-zinc-600 border-zinc-300"
+                            : "bg-amber-50 text-amber-800 border-amber-300"
                         }`}
                       >
-                        {g.isAttending ? "Asiste" : "No asiste"}
-                      </button>
+                        <option value="yes">Sí asiste</option>
+                        <option value="no">No asiste</option>
+                        <option value="pending">Pendiente</option>
+                      </select>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">
@@ -1394,14 +1543,13 @@ export const Admin: React.FC<AdminProps> = ({ onBackToRSVP }) => {
                           onChange={(e) => {
                             const updated = [...editFormData.guests];
                             updated[gi].needsTransport = e.target.checked;
-                            if (!e.target.checked) updated[gi].transportLocation = "";
-                            else updated[gi].transportLocation = "Mendoza Centro (Plaza Independencia)";
+                            updated[gi].transportLocation = "";
                             setEditFormData({ ...editFormData, guests: updated });
                           }}
                           className="w-3.5 h-3.5 accent-[#6E0D23]"
                         />
                         <label htmlFor={`transport-${gi}`} className="text-[11px] text-[#363B1F] cursor-pointer">
-                          Requiere Traslado
+                          Transporte de la boda: Potrerillos → Mendoza Capital
                         </label>
                       </div>
                     </div>
